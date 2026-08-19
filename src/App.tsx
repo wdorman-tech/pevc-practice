@@ -1,22 +1,35 @@
 import { useCallback, useMemo, useState } from 'react'
+import { Course } from './components/Course'
 import { Dashboard, type StartSpec } from './components/Dashboard'
 import { Drill, type DrillMeta } from './components/Drill'
 import { Library } from './components/Library'
+import { SpecialSets } from './components/SpecialSets'
+import { Technicals } from './components/Technicals'
 import { Trajectory } from './components/Trajectory'
 import { QUESTIONS, shortCategory } from './lib/data'
 import { buildQueue, useProgress } from './lib/store'
 import type { Question } from './lib/types'
 
-type View = 'dashboard' | 'drill' | 'library' | 'trajectory'
+type View =
+  | 'dashboard'
+  | 'course'
+  | 'sets'
+  | 'technicals'
+  | 'drill'
+  | 'library'
+  | 'trajectory'
 
 const NAV: { id: View; label: string }[] = [
   { id: 'dashboard', label: 'Dashboard' },
+  { id: 'course', label: 'Course' },
+  { id: 'sets', label: 'Special Sets' },
+  { id: 'technicals', label: 'Basic Technicals' },
   { id: 'library', label: 'Library' },
   { id: 'trajectory', label: 'Trajectory' },
 ]
 
 export default function App() {
-  const { progress, grade, logSession, toggleStar, reset } = useProgress()
+  const { progress, record, undo, toggleStar, reset } = useProgress()
   const [view, setView] = useState<View>('dashboard')
   const [queue, setQueue] = useState<Question[]>([])
   const [meta, setMeta] = useState<DrillMeta>({ title: '', subtitle: '' })
@@ -63,35 +76,49 @@ export default function App() {
           queue={queue}
           meta={meta}
           starred={progress.starred}
-          onGrade={grade}
+          onRecord={record}
+          onUndo={undo}
           onStar={toggleStar}
-          onLog={logSession}
           onExit={goHome}
         />
       )
+    if (view === 'course') return <Course progress={progress} onStart={start} />
+    if (view === 'sets') return <SpecialSets progress={progress} onStart={start} />
+    if (view === 'technicals') return <Technicals />
     if (view === 'library')
       return <Library progress={progress} onStar={toggleStar} onDrillCategory={drillCategory} />
     if (view === 'trajectory')
       return <Trajectory progress={progress} onReset={reset} onDrillCategory={drillCategory} />
-    return <Dashboard progress={progress} onStart={start} onOpenLibrary={() => setView('library')} />
+    return (
+      <Dashboard
+        progress={progress}
+        onStart={start}
+        onOpenLibrary={() => setView('library')}
+        onOpenCourse={() => setView('course')}
+        onOpenSets={() => {
+          setView('sets')
+          window.scrollTo({ top: 0 })
+        }}
+      />
+    )
   }, [
     drillCategory,
     goHome,
-    grade,
-    logSession,
     meta,
     progress,
     queue,
+    record,
     reset,
     runId,
     start,
     toggleStar,
+    undo,
     view,
   ])
 
   return (
     <div className="min-h-screen">
-      <nav className="sticky top-0 z-50 border-b border-[rgba(147,128,111,0.14)] bg-[rgba(10,8,7,0.72)] backdrop-blur-xl">
+      <nav className="border-line sticky top-0 z-50 border-b bg-[rgba(250,249,245,0.82)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
           <button
             type="button"
@@ -116,7 +143,7 @@ export default function App() {
                 }}
                 className={`cursor-pointer rounded-lg px-3 py-1.5 font-mono text-[11px] tracking-[0.14em] uppercase transition-colors ${
                   view === item.id
-                    ? 'bg-ember-500/12 text-ember-300'
+                    ? 'bg-ember-500/10 text-ember-700'
                     : 'text-bone-500 hover:text-bone-300'
                 }`}
               >
@@ -131,7 +158,7 @@ export default function App() {
         <button
           type="button"
           onClick={goHome}
-          className="fixed bottom-24 left-6 z-50 cursor-pointer rounded-full border border-[rgba(147,128,111,0.22)] bg-[rgba(16,12,10,0.9)] px-4 py-2 font-mono text-[10px] tracking-[0.16em] text-bone-500 uppercase backdrop-blur transition-colors hover:text-bone-100"
+          className="border-line text-bone-500 hover:text-bone-100 fixed bottom-24 left-6 z-50 cursor-pointer rounded-full border bg-[rgba(255,255,255,0.92)] px-4 py-2 font-mono text-[10px] tracking-[0.16em] uppercase backdrop-blur transition-colors"
         >
           ← End session
         </button>
@@ -147,15 +174,8 @@ function Flame() {
     <svg width="20" height="24" viewBox="0 0 20 24" fill="none" aria-hidden>
       <path
         d="M10 1c1.6 4.2-1.4 5.6-2.9 7.7C5.4 11 5 12.6 5 14.2 5 18.5 7.9 22 10.6 22 14 22 16 18.9 16 15.2c0-3.4-2-5.3-3.2-7.4-.7-1.2-1-2.3-.8-3.6-1 .7-1.7 1.6-2.1 2.7C9.3 5.2 9.4 3.1 10 1Z"
-        fill="url(#flameGrad)"
+        fill="var(--color-ember-500)"
       />
-      <defs>
-        <linearGradient id="flameGrad" x1="5" y1="1" x2="16" y2="22" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#e8a33d" />
-          <stop offset="0.5" stopColor="#f2601a" />
-          <stop offset="1" stopColor="#a63505" />
-        </linearGradient>
-      </defs>
     </svg>
   )
 }

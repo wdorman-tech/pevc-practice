@@ -61,11 +61,11 @@ export function Trajectory({
               <div
                 key={cell.day}
                 title={`${cell.day} · ${cell.reviewed} reviewed`}
-                className="rounded-[3px] border border-[rgba(147,128,111,0.08)]"
+                className="border-line rounded-[3px] border"
                 style={{
                   background: intensity
-                    ? `rgba(242, 96, 26, ${intensity})`
-                    : 'rgba(147,128,111,0.07)',
+                    ? `rgba(201, 100, 66, ${intensity})`
+                    : 'var(--color-well)',
                 }}
               />
             )
@@ -97,7 +97,7 @@ export function Trajectory({
                           </span>
                           <span className="font-mono text-[10px] text-bone-500">
                             {c.seen}/{c.total}
-                            {c.due > 0 && <span className="text-ember-400"> · {c.due} due</span>}
+                            {c.due > 0 && <span className="text-ember-600"> · {c.due} due</span>}
                           </span>
                         </div>
                         <div className="mt-1.5">

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CardState, Grade, Progress, Question } from './types'
 import { QUESTIONS } from './data'
+import { courseOrder } from './curriculum'
 
 const KEY = 'ember-ib-trainer-v1'
 const DAY = 86_400_000
@@ -32,14 +33,36 @@ export function nextBox(box: number, grade: Grade): number {
   return Math.min(5, box + 2)
 }
 
+export function isSolid(g: Grade): boolean {
+  return g === 'solid' || g === 'sharp'
+}
+
+/** Enough state to put a single rep back the way it was. */
+type UndoEntry = {
+  id: string
+  card: CardState | undefined
+  day: string
+  solid: number
+  seconds: number
+}
+
 export function useProgress() {
   const [progress, setProgress] = useState<Progress>(load)
+  // mirror of the latest progress, so a rep can snapshot the pre-grade card synchronously
+  const latest = useRef(progress)
+  const undoStack = useRef<UndoEntry[]>([])
 
   useEffect(() => {
+    latest.current = progress
     localStorage.setItem(KEY, JSON.stringify(progress))
   }, [progress])
 
-  const grade = useCallback((id: string, g: Grade) => {
+  /** Grade one card and log the rep. Atomic so undo can reverse both halves. */
+  const record = useCallback((id: string, g: Grade, seconds: number) => {
+    const solid = isSolid(g) ? 1 : 0
+    const day = today()
+    undoStack.current.push({ id, card: latest.current.cards[id], day, solid, seconds })
+
     setProgress((prev) => {
       const now = Date.now()
       const card: CardState = prev.cards[id] ?? {
@@ -55,32 +78,58 @@ export function useProgress() {
         box,
         seen: card.seen + 1,
         again: card.again + (g === 'again' ? 1 : 0),
-        solid: card.solid + (g === 'solid' || g === 'sharp' ? 1 : 0),
+        solid: card.solid + solid,
         due: now + INTERVALS[box] * DAY,
         last: now,
       }
-      return { ...prev, cards: { ...prev.cards, [id]: updated } }
-    })
-  }, [])
 
-  const logSession = useCallback((reviewed: number, solid: number, seconds: number) => {
-    if (!reviewed) return
-    setProgress((prev) => {
-      const day = today()
       const sessions = prev.sessions.slice()
       const idx = sessions.findIndex((s) => s.day === day)
       if (idx >= 0) {
         sessions[idx] = {
           day,
-          reviewed: sessions[idx].reviewed + reviewed,
+          reviewed: sessions[idx].reviewed + 1,
           solid: sessions[idx].solid + solid,
           seconds: sessions[idx].seconds + seconds,
         }
       } else {
-        sessions.push({ day, reviewed, solid, seconds })
+        sessions.push({ day, reviewed: 1, solid, seconds })
       }
-      return { ...prev, sessions: sessions.slice(-180) }
+
+      return {
+        ...prev,
+        cards: { ...prev.cards, [id]: updated },
+        sessions: sessions.slice(-180),
+      }
     })
+  }, [])
+
+  /** Reverse the most recent rep. Returns false when there is nothing left to undo. */
+  const undo = useCallback(() => {
+    const last = undoStack.current.pop()
+    if (!last) return false
+    setProgress((prev) => {
+      const cards = { ...prev.cards }
+      if (last.card) cards[last.id] = last.card
+      else delete cards[last.id]
+
+      const sessions = prev.sessions.slice()
+      const idx = sessions.findIndex((s) => s.day === last.day)
+      if (idx >= 0) {
+        const s = sessions[idx]
+        const reviewed = s.reviewed - 1
+        if (reviewed <= 0) sessions.splice(idx, 1)
+        else
+          sessions[idx] = {
+            day: s.day,
+            reviewed,
+            solid: Math.max(0, s.solid - last.solid),
+            seconds: Math.max(0, s.seconds - last.seconds),
+          }
+      }
+      return { ...prev, cards, sessions }
+    })
+    return true
   }, [])
 
   const toggleStar = useCallback((id: string) => {
@@ -92,9 +141,12 @@ export function useProgress() {
     }))
   }, [])
 
-  const reset = useCallback(() => setProgress(EMPTY), [])
+  const reset = useCallback(() => {
+    undoStack.current = []
+    setProgress(EMPTY)
+  }, [])
 
-  return { progress, grade, logSession, toggleStar, reset }
+  return { progress, record, undo, toggleStar, reset }
 }
 
 export type Stats = ReturnType<typeof deriveStats>
@@ -178,7 +230,7 @@ export function buildQueue(
   progress: Progress,
   pool: Question[],
   size: number,
-  mode: 'due' | 'new' | 'weak' | 'mixed' | 'all',
+  mode: 'due' | 'new' | 'weak' | 'mixed' | 'all' | 'course',
 ): Question[] {
   const now = Date.now()
   const cards = progress.cards
@@ -189,12 +241,15 @@ export function buildQueue(
     .sort((a, b) => (cards[a.id]?.box ?? 0) - (cards[b.id]?.box ?? 0))
 
   const pick = (list: Question[]) => list.slice().sort(() => Math.random() - 0.5)
+  const taught = (list: Question[]) => list.slice().sort(courseOrder)
 
   let queue: Question[] = []
   if (mode === 'due') queue = pick(dueList)
   else if (mode === 'new') queue = pick(newList)
   else if (mode === 'weak') queue = weakList.length ? weakList : pick(newList)
   else if (mode === 'all') queue = pick(pool)
+  // course mode never shuffles: simplest unseen material first, then repair work
+  else if (mode === 'course') queue = [...taught(newList), ...taught(weakList), ...taught(dueList)]
   else queue = [...pick(dueList), ...pick(newList), ...pick(weakList)]
 
   // de-dupe while preserving order, then trim
@@ -207,7 +262,7 @@ export function buildQueue(
     if (out.length >= size) break
   }
   if (out.length < size) {
-    for (const q of pick(pool)) {
+    for (const q of mode === 'course' ? taught(pool) : pick(pool)) {
       if (seen.has(q.id)) continue
       seen.add(q.id)
       out.push(q)

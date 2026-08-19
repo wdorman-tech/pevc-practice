@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 
 export function Ring({
   value,
@@ -17,19 +17,12 @@ export function Ring({
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <defs>
-          <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="var(--color-gold-400)" />
-            <stop offset="55%" stopColor="var(--color-ember-500)" />
-            <stop offset="100%" stopColor="var(--color-ember-700)" />
-          </linearGradient>
-        </defs>
         <circle
           cx={size / 2}
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="rgba(147,128,111,0.14)"
+          stroke="var(--color-well)"
           strokeWidth={stroke}
         />
         <circle
@@ -37,7 +30,7 @@ export function Ring({
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="url(#ringGrad)"
+          stroke="var(--color-ember-500)"
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={`${c * pct} ${c}`}
@@ -53,12 +46,12 @@ export function Bar({ value, tone = 'ember' }: { value: number; tone?: 'ember' |
   const pct = Math.max(0, Math.min(1, value)) * 100
   const fill =
     tone === 'moss'
-      ? 'linear-gradient(90deg,#4d7549,#6f9c6a)'
+      ? 'var(--color-moss-400)'
       : tone === 'bone'
-        ? 'linear-gradient(90deg,#5c5045,#93806f)'
-        : 'linear-gradient(90deg,#a63505,#f2601a 65%,#e8a33d)'
+        ? 'var(--color-line-strong)'
+        : 'var(--color-ember-500)'
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full bg-[rgba(147,128,111,0.13)]">
+    <div className="bg-well h-1.5 w-full overflow-hidden rounded-full">
       <div
         className="h-full rounded-full"
         style={{ width: `${pct}%`, background: fill, transition: 'width 800ms cubic-bezier(.2,.7,.2,1)' }}
@@ -81,10 +74,10 @@ export function Chip({
   const base =
     'font-mono text-[10px] uppercase tracking-[0.16em] px-2.5 py-1 rounded-full border transition-colors'
   const cls = active
-    ? 'border-ember-500/60 bg-ember-500/15 text-ember-300'
+    ? 'border-ember-500/45 bg-ember-500/10 text-ember-700'
     : tone === 'core'
-      ? 'border-gold-400/35 bg-gold-400/10 text-gold-400'
-      : 'border-[rgba(147,128,111,0.22)] text-bone-500 hover:text-bone-300 hover:border-[rgba(147,128,111,0.4)]'
+      ? 'border-gold-400/35 bg-gold-400/8 text-gold-400'
+      : 'border-line text-bone-500 hover:text-bone-300 hover:border-line-strong'
   return onClick ? (
     <button type="button" onClick={onClick} className={`${base} ${cls} cursor-pointer`}>
       {children}
@@ -109,7 +102,7 @@ export function Stat({
     <div className="panel px-5 py-4">
       <div className="label">{label}</div>
       <div
-        className={`mt-2 font-display text-4xl leading-none ${accent ? 'text-ember-400' : 'text-bone-100'}`}
+        className={`mt-2 font-display text-4xl leading-none ${accent ? 'text-ember-600' : 'text-bone-100'}`}
       >
         {value}
       </div>
@@ -132,10 +125,8 @@ export function Button({
   title?: string
 }) {
   const styles: Record<string, string> = {
-    solid:
-      'bg-gradient-to-b from-ember-500 to-ember-700 text-bone-100 border-ember-600/60 hover:from-ember-400 hover:to-ember-600 shadow-[0_10px_30px_-16px_rgba(242,96,26,0.9)]',
-    ghost:
-      'bg-[rgba(29,22,19,0.7)] text-bone-300 border-[rgba(147,128,111,0.22)] hover:border-ember-500/50 hover:text-bone-100',
+    solid: 'bg-ember-500 text-white border-ember-500 hover:bg-ember-600 hover:border-ember-600',
+    ghost: 'bg-ash-900 text-bone-300 border-line hover:border-ember-500/50 hover:text-bone-100',
     quiet: 'bg-transparent text-bone-500 border-transparent hover:text-bone-300',
   }
   return (
@@ -147,6 +138,31 @@ export function Button({
     >
       {children}
     </button>
+  )
+}
+
+/**
+ * The short answer, then the long one on demand. The short version is the thing
+ * you say out loud; the rest is only there when it didn't land.
+ */
+export function Answer({ short, long }: { short: string; long: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div>
+      <p className="text-bone-100 text-[17px] leading-[1.6]">{short}</p>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="text-bone-500 hover:text-ember-600 mt-5 cursor-pointer font-mono text-[10px] tracking-[0.16em] uppercase transition-colors"
+      >
+        {open ? '− Hide the long version' : '+ Long version'}
+      </button>
+      {open && (
+        <div className="mt-5">
+          <AnswerBody text={long} />
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -163,7 +179,7 @@ export function AnswerBody({ text }: { text: string }) {
             key={i}
             className={
               quote
-                ? 'border-l-2 border-ember-600/45 pl-4 text-bone-100 italic'
+                ? 'border-l-2 border-ember-500/50 pl-4 text-bone-100 italic'
                 : listish
                   ? 'pl-4 -indent-4 text-bone-300'
                   : ''

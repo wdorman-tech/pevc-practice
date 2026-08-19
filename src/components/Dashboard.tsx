@@ -2,13 +2,16 @@ import { useMemo } from 'react'
 import { CATEGORIES, CORE_COUNT, QUESTIONS, TRACK_BLURB, TRACK_ORDER, shortCategory } from '../lib/data'
 import type { Progress } from '../lib/types'
 import { categoryStats, deriveStats } from '../lib/store'
+import { CURRICULUM, activeStage, stageProgress } from '../lib/curriculum'
+import { SPECIAL_SETS } from '../lib/sets'
 import { Bar, Button, Ring, Stat } from './bits'
+import { SpecialSetRail } from './SpecialSets'
 
 export type StartSpec = {
   label: string
   subtitle: string
   filter: (q: (typeof QUESTIONS)[number]) => boolean
-  mode: 'due' | 'new' | 'weak' | 'mixed' | 'all'
+  mode: 'due' | 'new' | 'weak' | 'mixed' | 'all' | 'course'
   size: number
 }
 
@@ -16,13 +19,19 @@ export function Dashboard({
   progress,
   onStart,
   onOpenLibrary,
+  onOpenCourse,
+  onOpenSets,
 }: {
   progress: Progress
   onStart: (spec: StartSpec) => void
   onOpenLibrary: () => void
+  onOpenCourse: () => void
+  onOpenSets: () => void
 }) {
   const stats = useMemo(() => deriveStats(progress), [progress])
   const cats = useMemo(() => categoryStats(progress), [progress])
+  const stages = useMemo(() => stageProgress(progress), [progress])
+  const active = useMemo(() => activeStage(stages), [stages])
 
   const weakest = useMemo(
     () =>
@@ -91,23 +100,27 @@ export function Dashboard({
             <span className="text-ember-500 italic">One</span> hurdle rate.
           </h1>
           <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-bone-300">
-            The full 400 Questions guide, parsed into spaced-repetition drills, plus a
-            supplemental PE / LBO set — paper LBOs, returns math, capital structure, and sponsor
-            process. Answer out loud, then grade yourself honestly.
+            The 400 Questions guide plus a PE / LBO set and four club sectors, on spaced
+            repetition. Answer out loud, then grade yourself honestly.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button
               variant="solid"
               onClick={() =>
-                onStart(
-                  stats.due > 0
-                    ? quickStarts[0]
-                    : { ...quickStarts[1], subtitle: 'PE / LBO core drill' },
-                )
+                onStart({
+                  label: `Stage ${active.index + 1} · ${active.stage.title}`,
+                  subtitle: active.stage.blurb,
+                  filter: (q) => active.stage.categories.includes(q.category),
+                  mode: 'course',
+                  size: Math.min(active.total, 15),
+                })
               }
             >
-              {stats.due > 0 ? `Start review · ${stats.due} due` : 'Start PE / LBO drill'}
+              {active.seen ? 'Continue course' : 'Start the course'} · stage {active.index + 1}
             </Button>
+            {stats.due > 0 && (
+              <Button onClick={() => onStart(quickStarts[0])}>Review {stats.due} due</Button>
+            )}
             <Button onClick={onOpenLibrary}>Browse the library</Button>
           </div>
         </div>
@@ -145,6 +158,55 @@ export function Dashboard({
         />
       </section>
 
+      {/* course rail */}
+      <section className="mt-14">
+        <SectionHead
+          title="Your course"
+          note={`stage ${active.index + 1} of ${CURRICULUM.length}`}
+        />
+        <button
+          type="button"
+          onClick={onOpenCourse}
+          className="panel hover:border-ember-500/45 mt-5 block w-full cursor-pointer px-6 py-6 text-left transition-all"
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <div>
+              <div className="label">Currently on</div>
+              <div className="font-display text-bone-100 mt-1 text-3xl">{active.stage.title}</div>
+              <div className="text-bone-300 mt-1 text-[14px]">{active.stage.blurb}</div>
+            </div>
+            <div className="text-bone-500 font-mono text-[11px] tracking-[0.16em] uppercase">
+              view ladder →
+            </div>
+          </div>
+
+          <div className="mt-5 flex items-center gap-[3px]">
+            {stages.map((s) => (
+              <div
+                key={s.stage.id}
+                title={`${s.index + 1}. ${s.stage.title} — ${Math.round(s.mastery * 100)}%`}
+                className={`h-1.5 flex-1 rounded-full ${
+                  s.complete
+                    ? 'bg-moss-400'
+                    : s.index === active.index
+                      ? 'bg-ember-500'
+                      : s.unlocked
+                        ? 'bg-ember-500/25'
+                        : 'bg-well'
+                }`}
+              />
+            ))}
+          </div>
+          <div className="text-bone-500 mt-2.5 flex flex-wrap gap-4 font-mono text-[10px] tracking-[0.14em] uppercase">
+            <span>{Math.round(active.mastery * 100)}% this stage</span>
+            <span>
+              {active.seen}/{active.total} touched
+            </span>
+            <span>{stages.filter((s) => s.complete).length} stages cleared</span>
+          </div>
+        </button>
+      </section>
+
       {/* quick starts */}
       <section className="mt-14">
         <SectionHead title="Jump in" note="4 ways to run a set" />
@@ -154,20 +216,29 @@ export function Dashboard({
               key={spec.label}
               type="button"
               onClick={() => onStart(spec)}
-              className="panel group cursor-pointer px-5 py-5 text-left transition-all hover:-translate-y-0.5 hover:border-ember-500/40"
+              className="panel group cursor-pointer px-5 py-5 text-left transition-all hover:-translate-y-0.5 hover:border-ember-500/45"
             >
-              <div className="font-display text-2xl text-bone-100 group-hover:text-ember-300">
+              <div className="font-display text-2xl text-bone-100 group-hover:text-ember-600">
                 {spec.label}
               </div>
               <div className="mt-2 font-mono text-[11px] leading-relaxed text-bone-500">
                 {spec.subtitle}
               </div>
-              <div className="mt-4 font-mono text-[10px] tracking-[0.18em] text-ember-500/70 uppercase">
+              <div className="mt-4 font-mono text-[10px] tracking-[0.18em] text-ember-600/70 uppercase">
                 {spec.size} cards →
               </div>
             </button>
           ))}
         </div>
+      </section>
+
+      {/* club sets */}
+      <section className="mt-14">
+        <SectionHead
+          title="Special sets"
+          note={`${SPECIAL_SETS.length} club mandates · click for the full set`}
+        />
+        <SpecialSetRail progress={progress} onOpen={onOpenSets} />
       </section>
 
       {/* tracks */}
@@ -187,7 +258,7 @@ export function Dashboard({
                   size: 20,
                 })
               }
-              className="panel grid w-full cursor-pointer grid-cols-1 items-center gap-4 px-6 py-5 text-left transition-all hover:border-ember-500/40 md:grid-cols-[1.1fr_2fr_auto]"
+              className="panel grid w-full cursor-pointer grid-cols-1 items-center gap-4 px-6 py-5 text-left transition-all hover:border-ember-500/45 md:grid-cols-[1.1fr_2fr_auto]"
             >
               <div>
                 <div className="font-display text-2xl text-bone-100">{row.track}</div>
@@ -202,7 +273,7 @@ export function Dashboard({
                   <span>
                     {row.seen}/{row.total} touched
                   </span>
-                  {row.due > 0 && <span className="text-ember-400">{row.due} due</span>}
+                  {row.due > 0 && <span className="text-ember-600">{row.due} due</span>}
                 </div>
               </div>
               <div className="font-mono text-[11px] tracking-[0.16em] text-bone-500 uppercase md:text-right">
@@ -230,7 +301,7 @@ export function Dashboard({
                   size: Math.min(c.total, 15),
                 })
               }
-              className="panel flex cursor-pointer items-center gap-4 px-5 py-4 text-left transition-all hover:border-ember-500/40"
+              className="panel flex cursor-pointer items-center gap-4 px-5 py-4 text-left transition-all hover:border-ember-500/45"
             >
               <div className="flex-1">
                 <div className="text-[15px] text-bone-100">{shortCategory(c.category)}</div>

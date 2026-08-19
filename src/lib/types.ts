@@ -4,6 +4,9 @@ export type Question = {
   category: string
   number: number
   question: string
+  /** One or two sentences. Everything you need to answer out loud. */
+  short: string
+  /** The long version, kept under a toggle for when the short one isn't enough. */
   answer: string
   core: boolean
   source: string

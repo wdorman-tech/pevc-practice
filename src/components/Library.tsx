@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { CATEGORIES, QUESTIONS, TRACK_ORDER, shortCategory } from '../lib/data'
+import { CATEGORIES, LIBRARY_TRACKS, QUESTIONS, shortCategory } from '../lib/data'
 import type { Progress, Question } from '../lib/types'
-import { AnswerBody, Bar, Button, Chip } from './bits'
+import { Answer, Bar, Button, Chip } from './bits'
 import { SectionHead } from './Dashboard'
 
 export function Library({
@@ -28,6 +28,7 @@ export function Library({
       if (!q) return true
       return (
         item.question.toLowerCase().includes(q) ||
+        item.short.toLowerCase().includes(q) ||
         item.answer.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q)
       )
@@ -55,7 +56,7 @@ export function Library({
           <Chip active={!track && !starredOnly} onClick={() => { setTrack(null); setCategory(null); setStarredOnly(false) }}>
             All
           </Chip>
-          {TRACK_ORDER.map((t) => (
+          {LIBRARY_TRACKS.map((t) => (
             <Chip
               key={t}
               active={track === t}
@@ -158,7 +159,7 @@ function Row({
       {open && (
         <div className="px-5 pb-6 pl-[4.75rem]">
           <div className="hairline mb-5" />
-          <AnswerBody text={item.answer} />
+          <Answer short={item.short} long={item.answer} />
         </div>
       )}
     </div>

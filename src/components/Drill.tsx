@@ -1,14 +1,49 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Grade, Question } from '../lib/types'
 import { shortCategory } from '../lib/data'
-import { formatDuration, useKey } from '../lib/store'
-import { AnswerBody, Bar, Button, Chip } from './bits'
+import { formatDuration, isSolid, useKey } from '../lib/store'
+import { Answer, Bar, Button, Chip } from './bits'
 
-const GRADES: { key: Grade; label: string; hint: string; color: string; stroke: string }[] = [
-  { key: 'again', label: 'Blanked', hint: '1', color: 'text-[#e2685a]', stroke: 'hover:border-[#e2685a]/60' },
-  { key: 'shaky', label: 'Shaky', hint: '2', color: 'text-gold-400', stroke: 'hover:border-gold-400/60' },
-  { key: 'solid', label: 'Solid', hint: '3', color: 'text-bone-100', stroke: 'hover:border-ember-500/60' },
-  { key: 'sharp', label: 'Sharp', hint: '4', color: 'text-moss-400', stroke: 'hover:border-moss-400/60' },
+const GRADES: {
+  key: Grade
+  label: string
+  note: string
+  hint: string
+  color: string
+  stroke: string
+}[] = [
+  {
+    key: 'again',
+    label: "Didn't know",
+    note: 'see again today',
+    hint: '1',
+    color: 'text-clay-400',
+    stroke: 'hover:border-clay-400/60',
+  },
+  {
+    key: 'shaky',
+    label: 'Shaky',
+    note: 'partial recall',
+    hint: '2',
+    color: 'text-gold-400',
+    stroke: 'hover:border-gold-400/60',
+  },
+  {
+    key: 'solid',
+    label: 'Got it',
+    note: 'answered right',
+    hint: '3',
+    color: 'text-bone-100',
+    stroke: 'hover:border-ember-500/60',
+  },
+  {
+    key: 'sharp',
+    label: 'Know it cold',
+    note: 'instant, no gaps',
+    hint: '4',
+    color: 'text-moss-400',
+    stroke: 'hover:border-moss-400/60',
+  },
 ]
 
 export type DrillMeta = { title: string; subtitle: string }
@@ -17,19 +52,21 @@ export function Drill({
   queue,
   meta,
   starred,
-  onGrade,
+  onRecord,
+  onUndo,
   onStar,
-  onLog,
   onExit,
 }: {
   queue: Question[]
   meta: DrillMeta
   starred: string[]
-  onGrade: (id: string, g: Grade) => void
+  onRecord: (id: string, g: Grade, seconds: number) => void
+  onUndo: () => boolean
   onStar: (id: string) => void
-  onLog: (reviewed: number, solid: number, seconds: number) => void
   onExit: () => void
 }) {
+  // the queue grows: anything you blank on comes back at the end of the session
+  const [cards, setCards] = useState<Question[]>(queue)
   const [index, setIndex] = useState(0)
   const [revealed, setRevealed] = useState(false)
   const [tally, setTally] = useState({ reviewed: 0, solid: 0 })
@@ -38,6 +75,8 @@ export function Drill({
   const startedAt = useRef(Date.now())
   const cardAt = useRef(Date.now())
   const [cardSeconds, setCardSeconds] = useState(0)
+  const history = useRef<{ index: number; solid: boolean; requeued: boolean }[]>([])
+  const requeued = useRef(new Set<string>())
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -47,21 +86,29 @@ export function Drill({
     return () => clearInterval(t)
   }, [])
 
-  const card = queue[index]
+  const card = cards[index]
 
   const grade = useCallback(
     (g: Grade) => {
       if (!card || done) return
-      const wasSolid = g === 'solid' || g === 'sharp'
-      onGrade(card.id, g)
+      const wasSolid = isSolid(g)
       // log every rep as it happens, so quitting early never loses progress
-      onLog(1, wasSolid ? 1 : 0, Math.max(1, Math.round((Date.now() - cardAt.current) / 1000)))
-      const next = {
+      onRecord(card.id, g, Math.max(1, Math.round((Date.now() - cardAt.current) / 1000)))
+
+      // a blanked card comes back once this session — you should not leave without seeing it again
+      const requeue = g === 'again' && !requeued.current.has(card.id)
+      const list = requeue ? [...cards, card] : cards
+      if (requeue) {
+        requeued.current.add(card.id)
+        setCards(list)
+      }
+      history.current.push({ index, solid: wasSolid, requeued: requeue })
+
+      setTally({
         reviewed: tally.reviewed + 1,
         solid: tally.solid + (wasSolid ? 1 : 0),
-      }
-      setTally(next)
-      if (index + 1 >= queue.length) {
+      })
+      if (index + 1 >= list.length) {
         setDone(true)
       } else {
         setIndex(index + 1)
@@ -71,17 +118,44 @@ export function Drill({
         window.scrollTo({ top: 0, behavior: 'smooth' })
       }
     },
-    [card, done, index, onGrade, onLog, queue.length, tally],
+    [card, cards, done, index, onRecord, tally],
   )
+
+  /** Step back to the previous card and reverse its grade everywhere. */
+  const undo = useCallback(() => {
+    const last = history.current[history.current.length - 1]
+    if (!last) return
+    if (!onUndo()) return
+    history.current.pop()
+    if (last.requeued) {
+      setCards((prev) => prev.slice(0, -1))
+      requeued.current.delete(cards[last.index].id)
+    }
+    setTally((t) => ({
+      reviewed: Math.max(0, t.reviewed - 1),
+      solid: Math.max(0, t.solid - (last.solid ? 1 : 0)),
+    }))
+    setDone(false)
+    setIndex(last.index)
+    setRevealed(true)
+    cardAt.current = Date.now()
+    setCardSeconds(0)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [cards, onUndo])
 
   useKey(
     useCallback(
       (e: KeyboardEvent) => {
+        if (e.key.toLowerCase() === 'u') {
+          e.preventDefault()
+          undo()
+          return
+        }
         if (done) return
+        // space/enter only ever reveals — grading is always an explicit choice
         if (e.key === ' ' || e.key === 'Enter') {
           e.preventDefault()
-          if (!revealed) setRevealed(true)
-          else grade('solid')
+          setRevealed(true)
           return
         }
         if (!revealed) return
@@ -92,7 +166,7 @@ export function Drill({
         }
         if (e.key.toLowerCase() === 's' && card) onStar(card.id)
       },
-      [card, done, grade, onStar, revealed],
+      [card, done, grade, onStar, revealed, undo],
     ),
   )
 
@@ -114,6 +188,11 @@ export function Drill({
           <Button variant="solid" onClick={onExit}>
             Back to dashboard
           </Button>
+          {history.current.length > 0 && (
+            <Button onClick={undo}>
+              Undo last rating <span className="kbd ml-2">u</span>
+            </Button>
+          )}
         </div>
       </div>
     )
@@ -130,14 +209,14 @@ export function Drill({
         </div>
         <div className="text-right font-mono text-[11px] tracking-widest text-bone-500 uppercase">
           <div>
-            {index + 1} / {queue.length}
+            {index + 1} / {cards.length}
           </div>
           <div className="mt-1 text-bone-300">{formatDuration(elapsed)}</div>
         </div>
       </header>
 
       <div className="mt-5">
-        <Bar value={queue.length ? index / queue.length : 0} />
+        <Bar value={cards.length ? index / cards.length : 0} />
       </div>
 
       <article key={card.id} className="panel mt-8 px-8 py-9 rise">
@@ -163,7 +242,7 @@ export function Drill({
           <div className="mt-10">
             <div className="hairline" />
             <p className="mt-8 text-center font-mono text-[11px] tracking-[0.2em] text-bone-500 uppercase">
-              Answer out loud first — {cardSeconds}s
+              Answer out loud — {cardSeconds}s
             </p>
             <div className="mt-6 flex justify-center">
               <Button variant="solid" onClick={() => setRevealed(true)}>
@@ -175,7 +254,7 @@ export function Drill({
           <div className="mt-8 rise">
             <div className="hairline" />
             <div className="mt-7">
-              <AnswerBody text={card.answer} />
+              <Answer short={card.short} long={card.answer} />
             </div>
             <div className="mt-6 font-mono text-[10px] tracking-[0.16em] text-bone-500 uppercase">
               {card.source}
@@ -185,21 +264,34 @@ export function Drill({
       </article>
 
       {revealed && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[rgba(147,128,111,0.16)] bg-[rgba(10,8,7,0.86)] backdrop-blur-xl">
-          <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-3 px-6 py-4">
-            <span className="label hidden sm:block">How did it go?</span>
-            <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="border-line fixed inset-x-0 bottom-0 z-40 border-t bg-[rgba(250,249,245,0.9)] backdrop-blur-xl">
+          <div className="mx-auto max-w-4xl px-6 py-4">
+            <div className="flex items-center gap-3">
+              <span className="label">Rate it honestly</span>
+              {history.current.length > 0 && (
+                <button
+                  type="button"
+                  onClick={undo}
+                  className="text-bone-500 hover:text-bone-100 ml-auto cursor-pointer font-mono text-[10px] tracking-[0.16em] uppercase transition-colors"
+                >
+                  ↩ undo last (u)
+                </button>
+              )}
+            </div>
+            <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {GRADES.map((g) => (
                 <button
                   key={g.key}
                   type="button"
                   onClick={() => grade(g.key)}
-                  className={`cursor-pointer rounded-xl border border-[rgba(147,128,111,0.22)] bg-[rgba(29,22,19,0.7)] px-3 py-2.5 transition-all active:translate-y-px ${g.stroke}`}
+                  className={`border-line bg-ash-900 cursor-pointer rounded-xl border px-3 py-2.5 text-left transition-all active:translate-y-px ${g.stroke}`}
                 >
                   <div className={`font-mono text-[11px] tracking-[0.12em] uppercase ${g.color}`}>
                     {g.label}
                   </div>
-                  <div className="mt-0.5 font-mono text-[10px] text-bone-500">{g.hint}</div>
+                  <div className="mt-0.5 font-mono text-[10px] text-bone-500">
+                    {g.hint} · {g.note}
+                  </div>
                 </button>
               ))}
             </div>
