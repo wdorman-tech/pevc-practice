@@ -1,8 +1,8 @@
 #!/bin/bash
-# Double-click this file to launch the Ember interview trainer.
+# Double-click this file to launch The Tick Sheet.
 cd "$(dirname "$0")" || exit 1
 
-printf '\n  EMBER — IB / PE interview trainer\n\n'
+printf '\n  THE TICK SHEET — Wharton club interview prep\n\n'
 
 if ! command -v node >/dev/null 2>&1; then
   # Homebrew installs that are not on the double-click shell's PATH

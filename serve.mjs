@@ -46,8 +46,8 @@ function listen(port, attempt = 0) {
   })
   server.listen(port, () => {
     const address = `http://localhost:${port}`
-    console.log(`\n  Ember is live at ${address}\n  Close this window to stop the server.\n`)
-    if (process.env.EMBER_OPEN !== '0') {
+    console.log(`\n  The Tick Sheet is live at ${address}\n  Close this window to stop the server.\n`)
+    if (process.env.TICKSHEET_OPEN !== '0') {
       import('node:child_process').then(({ execFile }) => execFile('open', [address]))
     }
   })

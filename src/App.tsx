@@ -1,147 +1,76 @@
-import { useCallback, useMemo, useState } from 'react'
-import { Course } from './components/Course'
-import { Dashboard, type StartSpec } from './components/Dashboard'
-import { Drill, type DrillMeta } from './components/Drill'
-import { Library } from './components/Library'
-import { SpecialSets } from './components/SpecialSets'
-import { Technicals } from './components/Technicals'
-import { Trajectory } from './components/Trajectory'
-import { QUESTIONS, shortCategory } from './lib/data'
-import { buildQueue, useProgress } from './lib/store'
-import type { Question } from './lib/types'
+import { useCallback, useState } from 'react'
+import type { ModuleId } from './content/concepts'
+import { TESTS } from './content/tests'
+import { useStore } from './lib/store'
+import { Cards } from './views/Cards'
+import { Concepts } from './views/Concepts'
+import { Gym } from './views/Gym'
+import { Home } from './views/Home'
+import { Lesson } from './views/Lesson'
+import { MathDrill } from './views/MathDrill'
+import { Mock } from './views/Mock'
+import { Progress } from './views/Progress'
+import { TestRunner } from './views/TestRunner'
+import { Tests } from './views/Tests'
 
-type View =
-  | 'dashboard'
-  | 'course'
-  | 'sets'
-  | 'technicals'
-  | 'drill'
-  | 'library'
-  | 'trajectory'
+const NAV = [
+  { id: 'home', code: '01', label: 'Brief' },
+  { id: 'lesson', code: '02', label: 'The Big Three' },
+  { id: 'concepts', code: '03', label: 'Concepts' },
+  { id: 'cards', code: '04', label: 'Cards' },
+  { id: 'gym', code: '05', label: 'Gym' },
+  { id: 'math', code: '06', label: 'Math' },
+  { id: 'mock', code: '07', label: 'Mock' },
+  { id: 'tests', code: '08', label: 'Tests' },
+  { id: 'progress', code: '09', label: 'Progress' },
+] as const
 
-const NAV: { id: View; label: string }[] = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'course', label: 'Course' },
-  { id: 'sets', label: 'Special Sets' },
-  { id: 'technicals', label: 'Basic Technicals' },
-  { id: 'library', label: 'Library' },
-  { id: 'trajectory', label: 'Trajectory' },
-]
+type View = (typeof NAV)[number]['id'] | 'running'
 
 export default function App() {
-  const { progress, record, undo, toggleStar, reset } = useProgress()
-  const [view, setView] = useState<View>('dashboard')
-  const [queue, setQueue] = useState<Question[]>([])
-  const [meta, setMeta] = useState<DrillMeta>({ title: '', subtitle: '' })
-  const [runId, setRunId] = useState(0)
+  const store = useStore()
+  const [view, setView] = useState<View>('home')
+  const [conceptModule, setConceptModule] = useState<ModuleId | undefined>()
+  const [runningId, setRunningId] = useState<string | null>(null)
+  const [runKey, setRunKey] = useState(0)
 
-  const start = useCallback(
-    (spec: StartSpec) => {
-      const pool = QUESTIONS.filter(spec.filter)
-      const built = buildQueue(progress, pool, spec.size, spec.mode)
-      if (!built.length) return
-      setQueue(built)
-      setMeta({ title: spec.label, subtitle: spec.subtitle })
-      setRunId((n) => n + 1)
-      setView('drill')
-      window.scrollTo({ top: 0 })
-    },
-    [progress],
-  )
-
-  const drillCategory = useCallback(
-    (category: string) => {
-      const pool = QUESTIONS.filter((q) => q.category === category)
-      start({
-        label: shortCategory(category),
-        subtitle: `${pool.length} questions in this set`,
-        filter: (q) => q.category === category,
-        mode: 'mixed',
-        size: Math.min(pool.length, 20),
-      })
-    },
-    [start],
-  )
-
-  const goHome = useCallback(() => {
-    setView('dashboard')
+  const go = useCallback((v: string, mod?: ModuleId) => {
+    setConceptModule(mod)
+    setView(v as View)
     window.scrollTo({ top: 0 })
   }, [])
 
-  const body = useMemo(() => {
-    if (view === 'drill')
-      return (
-        <Drill
-          key={runId}
-          queue={queue}
-          meta={meta}
-          starred={progress.starred}
-          onRecord={record}
-          onUndo={undo}
-          onStar={toggleStar}
-          onExit={goHome}
-        />
-      )
-    if (view === 'course') return <Course progress={progress} onStart={start} />
-    if (view === 'sets') return <SpecialSets progress={progress} onStart={start} />
-    if (view === 'technicals') return <Technicals />
-    if (view === 'library')
-      return <Library progress={progress} onStar={toggleStar} onDrillCategory={drillCategory} />
-    if (view === 'trajectory')
-      return <Trajectory progress={progress} onReset={reset} onDrillCategory={drillCategory} />
-    return (
-      <Dashboard
-        progress={progress}
-        onStart={start}
-        onOpenLibrary={() => setView('library')}
-        onOpenCourse={() => setView('course')}
-        onOpenSets={() => {
-          setView('sets')
-          window.scrollTo({ top: 0 })
-        }}
-      />
-    )
-  }, [
-    drillCategory,
-    goHome,
-    meta,
-    progress,
-    queue,
-    record,
-    reset,
-    runId,
-    start,
-    toggleStar,
-    undo,
-    view,
-  ])
+  const startTest = useCallback((id: string) => {
+    setRunningId(id)
+    setRunKey((k) => k + 1)
+    setView('running')
+    window.scrollTo({ top: 0 })
+  }, [])
+
+  const running = TESTS.find((t) => t.id === runningId)
 
   return (
     <div className="min-h-screen">
-      <nav className="border-line sticky top-0 z-50 border-b bg-[rgba(250,249,245,0.82)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
+      <nav className="border-line sticky top-0 z-50 border-b bg-[rgba(250,249,245,0.85)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center gap-5 px-6 py-3.5">
           <button
             type="button"
-            onClick={goHome}
-            className="flex cursor-pointer items-center gap-2.5"
+            onClick={() => go('home')}
+            className="flex flex-none cursor-pointer items-baseline gap-2.5"
           >
-            <Flame />
-            <span className="font-display text-2xl leading-none tracking-wide text-bone-100">
-              Ember
+            <span className="font-display text-[26px] leading-none tracking-tight">
+              The Tick Sheet
             </span>
-            <span className="label hidden sm:block">IB · PE trainer</span>
+            <span className="label hidden lg:block">business intuition first</span>
           </button>
 
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-0.5 overflow-x-auto">
             {NAV.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => {
-                  setView(item.id)
-                  window.scrollTo({ top: 0 })
-                }}
-                className={`cursor-pointer rounded-lg px-3 py-1.5 font-mono text-[11px] tracking-[0.14em] uppercase transition-colors ${
+                onClick={() => go(item.id)}
+                className={`flex-none cursor-pointer rounded-lg px-2.5 py-1.5 font-mono text-[11px] tracking-[0.1em] uppercase transition-colors ${
                   view === item.id
                     ? 'bg-ember-500/10 text-ember-700'
                     : 'text-bone-500 hover:text-bone-300'
@@ -154,28 +83,25 @@ export default function App() {
         </div>
       </nav>
 
-      {view === 'drill' && (
-        <button
-          type="button"
-          onClick={goHome}
-          className="border-line text-bone-500 hover:text-bone-100 fixed bottom-24 left-6 z-50 cursor-pointer rounded-full border bg-[rgba(255,255,255,0.92)] px-4 py-2 font-mono text-[10px] tracking-[0.16em] uppercase backdrop-blur transition-colors"
-        >
-          ← End session
-        </button>
+      {view === 'home' && <Home store={store} go={go} />}
+      {view === 'lesson' && <Lesson store={store} />}
+      {view === 'concepts' && <Concepts store={store} initialModule={conceptModule} />}
+      {view === 'cards' && <Cards />}
+      {view === 'gym' && <Gym store={store} />}
+      {view === 'math' && <MathDrill store={store} />}
+      {view === 'mock' && <Mock store={store} />}
+      {view === 'tests' && <Tests store={store} onStart={startTest} />}
+      {view === 'progress' && <Progress store={store} />}
+      {view === 'running' && running && (
+        <TestRunner key={runKey} test={running} store={store} onExit={() => go('tests')} />
       )}
 
-      {body}
+      <footer className="border-line mt-20 border-t">
+        <div className="text-bone-500 mx-auto max-w-6xl px-6 py-8 font-mono text-[11px] leading-[1.7]">
+          Built from a mentor's note and a conversation with a club president on what these interviews
+          actually test. Progress is stored in this browser only.
+        </div>
+      </footer>
     </div>
-  )
-}
-
-function Flame() {
-  return (
-    <svg width="20" height="24" viewBox="0 0 20 24" fill="none" aria-hidden>
-      <path
-        d="M10 1c1.6 4.2-1.4 5.6-2.9 7.7C5.4 11 5 12.6 5 14.2 5 18.5 7.9 22 10.6 22 14 22 16 18.9 16 15.2c0-3.4-2-5.3-3.2-7.4-.7-1.2-1-2.3-.8-3.6-1 .7-1.7 1.6-2.1 2.7C9.3 5.2 9.4 3.1 10 1Z"
-        fill="var(--color-ember-500)"
-      />
-    </svg>
   )
 }

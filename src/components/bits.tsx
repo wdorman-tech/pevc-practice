@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 export function Ring({
   value,
@@ -138,57 +138,5 @@ export function Button({
     >
       {children}
     </button>
-  )
-}
-
-/**
- * The short answer, then the long one on demand. The short version is the thing
- * you say out loud; the rest is only there when it didn't land.
- */
-export function Answer({ short, long }: { short: string; long: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <div>
-      <p className="text-bone-100 text-[17px] leading-[1.6]">{short}</p>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="text-bone-500 hover:text-ember-600 mt-5 cursor-pointer font-mono text-[10px] tracking-[0.16em] uppercase transition-colors"
-      >
-        {open ? '− Hide the long version' : '+ Long version'}
-      </button>
-      {open && (
-        <div className="mt-5">
-          <AnswerBody text={long} />
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** Renders an answer's paragraphs, giving numbered / dashed lines a hanging indent. */
-export function AnswerBody({ text }: { text: string }) {
-  const blocks = text.split('\n').filter((line) => line.trim().length > 0)
-  return (
-    <div className="space-y-3.5 text-[15px] leading-[1.75] text-bone-300">
-      {blocks.map((line, i) => {
-        const listish = /^(\d+\)|\d+\.|-|•)\s/.test(line.trim())
-        const quote = line.trim().startsWith('"')
-        return (
-          <p
-            key={i}
-            className={
-              quote
-                ? 'border-l-2 border-ember-500/50 pl-4 text-bone-100 italic'
-                : listish
-                  ? 'pl-4 -indent-4 text-bone-300'
-                  : ''
-            }
-          >
-            {line}
-          </p>
-        )
-      })}
-    </div>
   )
 }

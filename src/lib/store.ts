@@ -1,303 +1,116 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CardState, Grade, Progress, Question } from './types'
-import { QUESTIONS } from './data'
-import { courseOrder } from './curriculum'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-const KEY = 'ember-ib-trainer-v1'
-const DAY = 86_400_000
+const KEY = 'ticksheet:v2'
 
-/** Leitner intervals in days, indexed by box. Box 5 = burned in. */
-export const INTERVALS = [0, 1, 3, 7, 21, 60]
+export type TestAttempt = {
+  testId: string
+  /** epoch ms */
+  at: number
+  /** auto-graded score on the recall + apply parts */
+  scored: number
+  scoredOf: number
+  /** criteria hit per open item, keyed by shell code */
+  self: Record<string, number>
+  /** criteria available across the open items, so history stays readable if the tests change */
+  selfOf: number
+  seconds: number
+}
 
-const EMPTY: Progress = { cards: {}, starred: [], sessions: [] }
+export type Persisted = {
+  /** concept ids the learner has ticked off */
+  ticked: string[]
+  /** lesson step ids completed */
+  lesson: string[]
+  /** gym item ids self-scored, id -> 0..4 */
+  gym: Record<string, number>
+  /** finished test attempts, newest last */
+  attempts: TestAttempt[]
+  /** running mental-math tally */
+  math: { right: number; wrong: number }
+}
 
-function load(): Progress {
+const EMPTY: Persisted = { ticked: [], lesson: [], gym: {}, attempts: [], math: { right: 0, wrong: 0 } }
+
+function load(): Persisted {
   try {
-    const rawValue = localStorage.getItem(KEY)
-    if (!rawValue) return EMPTY
-    const parsed = JSON.parse(rawValue) as Progress
-    return { ...EMPTY, ...parsed }
+    const raw = localStorage.getItem(KEY)
+    if (!raw) return EMPTY
+    const parsed = JSON.parse(raw) as Partial<Persisted>
+    return {
+      ...EMPTY,
+      ...parsed,
+      math: { ...EMPTY.math, ...(parsed.math ?? {}) },
+      gym: { ...(parsed.gym ?? {}) },
+    }
   } catch {
     return EMPTY
   }
 }
 
-export function today(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-export function nextBox(box: number, grade: Grade): number {
-  if (grade === 'again') return 0
-  if (grade === 'shaky') return Math.max(0, box - 1)
-  if (grade === 'solid') return Math.min(5, box + 1)
-  return Math.min(5, box + 2)
-}
-
-export function isSolid(g: Grade): boolean {
-  return g === 'solid' || g === 'sharp'
-}
-
-/** Enough state to put a single rep back the way it was. */
-type UndoEntry = {
-  id: string
-  card: CardState | undefined
-  day: string
-  solid: number
-  seconds: number
-}
-
-export function useProgress() {
-  const [progress, setProgress] = useState<Progress>(load)
-  // mirror of the latest progress, so a rep can snapshot the pre-grade card synchronously
-  const latest = useRef(progress)
-  const undoStack = useRef<UndoEntry[]>([])
+export function useStore() {
+  const [data, setData] = useState<Persisted>(load)
+  const first = useRef(true)
 
   useEffect(() => {
-    latest.current = progress
-    localStorage.setItem(KEY, JSON.stringify(progress))
-  }, [progress])
+    if (first.current) {
+      first.current = false
+      return
+    }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(data))
+    } catch {
+      /* private browsing, quota — the app still works, it just forgets */
+    }
+  }, [data])
 
-  /** Grade one card and log the rep. Atomic so undo can reverse both halves. */
-  const record = useCallback((id: string, g: Grade, seconds: number) => {
-    const solid = isSolid(g) ? 1 : 0
-    const day = today()
-    undoStack.current.push({ id, card: latest.current.cards[id], day, solid, seconds })
-
-    setProgress((prev) => {
-      const now = Date.now()
-      const card: CardState = prev.cards[id] ?? {
-        box: 0,
-        seen: 0,
-        again: 0,
-        solid: 0,
-        due: now,
-        last: 0,
-      }
-      const box = nextBox(card.box, g)
-      const updated: CardState = {
-        box,
-        seen: card.seen + 1,
-        again: card.again + (g === 'again' ? 1 : 0),
-        solid: card.solid + solid,
-        due: now + INTERVALS[box] * DAY,
-        last: now,
-      }
-
-      const sessions = prev.sessions.slice()
-      const idx = sessions.findIndex((s) => s.day === day)
-      if (idx >= 0) {
-        sessions[idx] = {
-          day,
-          reviewed: sessions[idx].reviewed + 1,
-          solid: sessions[idx].solid + solid,
-          seconds: sessions[idx].seconds + seconds,
-        }
-      } else {
-        sessions.push({ day, reviewed: 1, solid, seconds })
-      }
-
-      return {
-        ...prev,
-        cards: { ...prev.cards, [id]: updated },
-        sessions: sessions.slice(-180),
-      }
-    })
+  const toggleTick = useCallback((id: string) => {
+    setData((d) => ({
+      ...d,
+      ticked: d.ticked.includes(id) ? d.ticked.filter((x) => x !== id) : [...d.ticked, id],
+    }))
   }, [])
 
-  /** Reverse the most recent rep. Returns false when there is nothing left to undo. */
-  const undo = useCallback(() => {
-    const last = undoStack.current.pop()
-    if (!last) return false
-    setProgress((prev) => {
-      const cards = { ...prev.cards }
-      if (last.card) cards[last.id] = last.card
-      else delete cards[last.id]
-
-      const sessions = prev.sessions.slice()
-      const idx = sessions.findIndex((s) => s.day === last.day)
-      if (idx >= 0) {
-        const s = sessions[idx]
-        const reviewed = s.reviewed - 1
-        if (reviewed <= 0) sessions.splice(idx, 1)
-        else
-          sessions[idx] = {
-            day: s.day,
-            reviewed,
-            solid: Math.max(0, s.solid - last.solid),
-            seconds: Math.max(0, s.seconds - last.seconds),
-          }
-      }
-      return { ...prev, cards, sessions }
-    })
-    return true
+  const completeStep = useCallback((id: string) => {
+    setData((d) => (d.lesson.includes(id) ? d : { ...d, lesson: [...d.lesson, id] }))
   }, [])
 
-  const toggleStar = useCallback((id: string) => {
-    setProgress((prev) => ({
-      ...prev,
-      starred: prev.starred.includes(id)
-        ? prev.starred.filter((s) => s !== id)
-        : [...prev.starred, id],
+  const scoreGym = useCallback((id: string, score: number) => {
+    setData((d) => ({ ...d, gym: { ...d.gym, [id]: score } }))
+  }, [])
+
+  const recordAttempt = useCallback((attempt: TestAttempt) => {
+    setData((d) => ({ ...d, attempts: [...d.attempts, attempt] }))
+  }, [])
+
+  const recordMath = useCallback((right: boolean) => {
+    setData((d) => ({
+      ...d,
+      math: { right: d.math.right + (right ? 1 : 0), wrong: d.math.wrong + (right ? 0 : 1) },
     }))
   }, [])
 
   const reset = useCallback(() => {
-    undoStack.current = []
-    setProgress(EMPTY)
+    setData(EMPTY)
+    try {
+      localStorage.removeItem(KEY)
+    } catch {
+      /* nothing to clean up */
+    }
   }, [])
 
-  return { progress, record, undo, toggleStar, reset }
+  return { data, toggleTick, completeStep, scoreGym, recordAttempt, recordMath, reset }
 }
 
-export type Stats = ReturnType<typeof deriveStats>
+export type Store = ReturnType<typeof useStore>
 
-export function deriveStats(progress: Progress) {
-  const now = Date.now()
-  const cards = progress.cards
-  const touched = Object.keys(cards).length
-  let mastered = 0
-  let learning = 0
-  let due = 0
-  for (const q of QUESTIONS) {
-    const c = cards[q.id]
-    if (!c) continue
-    if (c.box >= 4) mastered += 1
-    else learning += 1
-    if (c.due <= now) due += 1
-  }
-  const newCards = QUESTIONS.length - touched
-
-  // mastery = weighted average box across the full deck (0..1)
-  const totalBox = QUESTIONS.reduce((sum, q) => sum + (cards[q.id]?.box ?? 0), 0)
-  const mastery = totalBox / (QUESTIONS.length * 5)
-
-  // streak of consecutive days with a logged session, ending today or yesterday
-  const days = new Set(progress.sessions.filter((s) => s.reviewed > 0).map((s) => s.day))
-  let streak = 0
-  const cursor = new Date()
-  if (!days.has(cursor.toISOString().slice(0, 10))) cursor.setDate(cursor.getDate() - 1)
-  while (days.has(cursor.toISOString().slice(0, 10))) {
-    streak += 1
-    cursor.setDate(cursor.getDate() - 1)
-  }
-
-  const reviewedTotal = progress.sessions.reduce((s, x) => s + x.reviewed, 0)
-  const solidTotal = progress.sessions.reduce((s, x) => s + x.solid, 0)
-  const todayLog = progress.sessions.find((s) => s.day === today())
-
-  return {
-    mastery,
-    mastered,
-    learning,
-    newCards,
-    due,
-    touched,
-    streak,
-    reviewedTotal,
-    solidTotal,
-    accuracy: reviewedTotal ? solidTotal / reviewedTotal : 0,
-    todayReviewed: todayLog?.reviewed ?? 0,
-  }
-}
-
-export function categoryStats(progress: Progress) {
-  const now = Date.now()
-  const map = new Map<
-    string,
-    { category: string; track: string; total: number; mastery: number; due: number; seen: number }
-  >()
-  for (const q of QUESTIONS) {
-    const entry = map.get(q.category) ?? {
-      category: q.category,
-      track: q.track,
-      total: 0,
-      mastery: 0,
-      due: 0,
-      seen: 0,
-    }
-    const card = progress.cards[q.id]
-    entry.total += 1
-    entry.mastery += (card?.box ?? 0) / 5
-    if (card) entry.seen += 1
-    if (card && card.due <= now) entry.due += 1
-    map.set(q.category, entry)
-  }
-  return [...map.values()].map((e) => ({ ...e, mastery: e.mastery / e.total }))
-}
-
-/** Build a study queue: due cards first (most overdue), then unseen, then weakest. */
-export function buildQueue(
-  progress: Progress,
-  pool: Question[],
-  size: number,
-  mode: 'due' | 'new' | 'weak' | 'mixed' | 'all' | 'course',
-): Question[] {
-  const now = Date.now()
-  const cards = progress.cards
-  const dueList = pool.filter((q) => cards[q.id] && cards[q.id].due <= now)
-  const newList = pool.filter((q) => !cards[q.id])
-  const weakList = pool
-    .filter((q) => cards[q.id] && cards[q.id].box <= 2)
-    .sort((a, b) => (cards[a.id]?.box ?? 0) - (cards[b.id]?.box ?? 0))
-
-  const pick = (list: Question[]) => list.slice().sort(() => Math.random() - 0.5)
-  const taught = (list: Question[]) => list.slice().sort(courseOrder)
-
-  let queue: Question[] = []
-  if (mode === 'due') queue = pick(dueList)
-  else if (mode === 'new') queue = pick(newList)
-  else if (mode === 'weak') queue = weakList.length ? weakList : pick(newList)
-  else if (mode === 'all') queue = pick(pool)
-  // course mode never shuffles: simplest unseen material first, then repair work
-  else if (mode === 'course') queue = [...taught(newList), ...taught(weakList), ...taught(dueList)]
-  else queue = [...pick(dueList), ...pick(newList), ...pick(weakList)]
-
-  // de-dupe while preserving order, then trim
-  const seen = new Set<string>()
-  const out: Question[] = []
-  for (const q of queue) {
-    if (seen.has(q.id)) continue
-    seen.add(q.id)
-    out.push(q)
-    if (out.length >= size) break
-  }
-  if (out.length < size) {
-    for (const q of mode === 'course' ? taught(pool) : pick(pool)) {
-      if (seen.has(q.id)) continue
-      seen.add(q.id)
-      out.push(q)
-      if (out.length >= size) break
-    }
+/** Deterministic shuffle so a reload does not silently regrade a test in progress. */
+export function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const out = arr.slice()
+  let s = seed || 1
+  for (let i = out.length - 1; i > 0; i--) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff
+    const j = s % (i + 1)
+    ;[out[i], out[j]] = [out[j], out[i]]
   }
   return out
-}
-
-export function useMounted() {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-  return mounted
-}
-
-export function useNow(intervalMs = 1000, active = true) {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (!active) return
-    const t = setInterval(() => setNow(Date.now()), intervalMs)
-    return () => clearInterval(t)
-  }, [intervalMs, active])
-  return now
-}
-
-export function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${String(s).padStart(2, '0')}`
-}
-
-export function useKey(handler: (e: KeyboardEvent) => void) {
-  const stable = useMemo(() => handler, [handler])
-  useEffect(() => {
-    window.addEventListener('keydown', stable)
-    return () => window.removeEventListener('keydown', stable)
-  }, [stable])
 }
