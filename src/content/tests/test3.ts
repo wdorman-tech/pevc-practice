@@ -37,7 +37,7 @@ export const TEST_3: PracticeTest = {
         'February, when the cash reached the bank',
       ],
       answer: 1,
-      why: 'Revenue is earned when you deliver, so the December work is a December sale and the unpaid bill parks on the balance sheet as money owed to you. February moves that receivable into cash; it is not a second sale.',
+      why: 'Revenue is earned when you deliver, so the December work is a December sale. February settles it in cash; nothing new is earned, and the sale is not recorded twice.',
       traps: {
         0: 'You picked this if you treat signing a contract as earning revenue, when nothing has been delivered yet.',
         2: 'You picked this if you are booking revenue when the cash lands, which is cash accounting rather than accrual.',
@@ -154,7 +154,7 @@ export const TEST_3: PracticeTest = {
       why: 'A put gains value as the shares fall, and you can simply walk away if they rise. The premium is the entire cost of finding out, which is the asymmetry that makes it behave like insurance on a position.',
       traps: {
         1: 'You picked this if you swapped the two options over; the right to buy at a strike is a call.',
-        2: "You picked this if you took the seller's side, who collects the premium and carries the obligation.",
+        2: "You picked this if you read the put as an obligation to sell rather than a right to sell; a contract you must honour is a forward, and it is the option's seller who carries the duty.",
       },
       rule: 'Buying an option buys a right and caps your loss at the premium; selling one takes on the obligation.',
     },
@@ -163,16 +163,16 @@ export const TEST_3: PracticeTest = {
     {
       shell: 'S09',
       kind: 'num',
-      stem: "A streaming service's depreciation on its servers rises by $40M. The tax rate is 25% and nothing else changes. How much does cash from operations rise, in $M?",
-      answer: 10,
+      stem: "A streaming service's depreciation on its servers rises by $60M. The tax rate is 25% and nothing else changes. How much does cash from operations rise, in $M?",
+      answer: 15,
       unit: '$M',
-      format: 'Answer as a number, e.g. 10',
+      format: 'Answer as a number, e.g. 6',
       work: [
-        { label: 'Operating profit falls by the charge', value: '($40M)' },
-        { label: 'Tax saved at 25%', value: '+$10M', running: 'Net income ($30M)' },
-        { label: 'Add back depreciation, no cash moved', value: '+$40M', running: 'Cash from operations +$10M' },
+        { label: 'Operating profit falls by the charge', value: '($60M)' },
+        { label: 'Tax saved at 25%', value: '+$15M', running: 'Net income ($45M)' },
+        { label: 'Add back depreciation, no cash moved', value: '+$60M', running: 'Cash from operations +$15M' },
       ],
-      why: 'Cash rises even though profit falls, because the charge itself moved no money while the tax it saved is real money not paid. That $10M is the tax shield and nothing else.',
+      why: 'Cash rises even though profit falls, because the charge itself moved no money while the tax it saved is real money not paid. That $15M is the tax shield and nothing else.',
       rule: 'A non-cash charge leaves you with only its tax saving in cash.',
     },
 
@@ -183,7 +183,7 @@ export const TEST_3: PracticeTest = {
       stem: 'A payroll software company reports $60M of net income. Depreciation is $15M, receivables rise $30M and payables rise $10M. What is cash from operations, in $M?',
       answer: 55,
       unit: '$M',
-      format: 'Answer as a number, e.g. 55',
+      format: 'Answer as a number, e.g. 40',
       work: [
         { label: 'Net income', value: '+$60M', running: '$60M' },
         { label: 'Add back depreciation, non-cash', value: '+$15M', running: '$75M' },
@@ -198,15 +198,15 @@ export const TEST_3: PracticeTest = {
     {
       shell: 'S11',
       kind: 'num',
-      stem: 'A ticketing marketplace has a market cap of $700M, debt of $250M and cash of $150M. EBITDA is $100M. What is its EV/EBITDA multiple?',
-      answer: 8,
+      stem: 'A ticketing marketplace has a market cap of $700M, debt of $250M and cash of $50M. EBITDA is $100M. What is its EV/EBITDA multiple?',
+      answer: 9,
       unit: 'x',
-      format: 'Answer as a number, e.g. 8',
+      format: 'Answer as a number, e.g. 12',
       work: [
         { label: 'Equity value, the market cap', value: '+$700M', running: '$700M' },
         { label: 'Add debt, a claim on the same business', value: '+$250M', running: '$950M' },
-        { label: 'Subtract cash, it comes with the deal', value: '($150M)', running: 'EV $800M' },
-        { label: 'Divide by EBITDA', value: '÷ $100M', running: '8.0x' },
+        { label: 'Subtract cash, it comes with the deal', value: '($50M)', running: 'EV $900M' },
+        { label: 'Divide by EBITDA', value: '÷ $100M', running: '9.0x' },
       ],
       why: 'The multiple prices the whole operating business against the profit it throws off, with financing stripped out of both halves. That is why debt goes in and cash comes out before you divide.',
       rule: 'Build enterprise value first, adding debt and subtracting cash, then divide by an operating profit figure.',
@@ -218,14 +218,14 @@ export const TEST_3: PracticeTest = {
       kind: 'num',
       stem: 'A design-tool startup charges $30 a month per subscriber and spends $6 a month serving each one. Fixed costs are $120,000 a month. How many subscribers to break even?',
       answer: 5000,
-      format: 'Answer as a number, e.g. 5000',
+      format: 'Answer as a number, e.g. 3500',
       work: [
         { label: 'Price per subscriber, monthly', value: '+$30' },
         { label: 'Cost to serve one subscriber', value: '($6)', running: 'Contribution $24' },
         { label: 'Fixed costs to cover each month', value: '($120,000)' },
         { label: '$120,000 divided by $24 of contribution', value: '= 5,000 subs', running: 'Breakeven 5,000' },
       ],
-      why: 'Breakeven is fixed cost divided by what one more customer contributes, never by the price. Past 5,000 subscribers the cost base is already paid, so $24 of every new subscription drops through.',
+      why: 'Below 5,000 subscribers every dollar of contribution is still paying off the fixed base. Above it the base is covered, so $24 of each new subscription falls to profit, which is why a subscription business looks hopeless right up until it does not.',
       rule: 'Divide fixed costs by contribution per unit, not by price, to find breakeven.',
     },
 
@@ -237,7 +237,7 @@ export const TEST_3: PracticeTest = {
       answer: 9,
       tol: 0.5,
       unit: ' years',
-      format: 'Answer as a number, e.g. 9',
+      format: 'Answer as a number, e.g. 14',
       work: [
         { label: 'Nominal growth rate', value: '+12%' },
         { label: 'Less inflation', value: '(4%)', running: 'Real growth +8%' },
@@ -270,7 +270,7 @@ export const TEST_3: PracticeTest = {
     {
       shell: 'S15',
       kind: 'mc',
-      stem: 'A design-tool startup grows fast, spends everything on hiring, and shows no profit at the operating or the net line. Which multiple can you defend using?',
+      stem: 'A design-tool startup grows fast, spends everything on hiring, and shows a loss at every line from EBITDA down. Which multiple can you defend using?',
       choices: [
         'EV/Sales, with a view on mature margins',
         'EV/EBITDA, which strips out depreciation and leverage',
@@ -289,11 +289,11 @@ export const TEST_3: PracticeTest = {
     {
       shell: 'S16',
       kind: 'mc',
-      stem: 'Rates rise one percentage point across the curve. Which of these three assets falls the most in price?',
+      stem: 'Rates rise one percentage point across the curve. You hold a loss-making startup valued on far-off profits, a mature payroll company generating cash today, and a two-year government note held to maturity. Which falls the most in price?',
       choices: [
-        'A loss-making startup valued on far-off profits',
-        'A mature payroll company generating cash today',
-        'A two-year government bill held to maturity',
+        'The loss-making startup',
+        'The mature payroll company',
+        'The two-year government note',
       ],
       answer: 0,
       why: "A higher discount rate bites in proportion to how far away the cash sits. Nearly all of the startup's value lives in distant years, which makes it the longest-duration asset in the set.",
@@ -312,7 +312,7 @@ export const TEST_3: PracticeTest = {
       tests: 'Whether you test the strength of a network effect rather than accepting the label at face value.',
       clarify: [
         "Am I buying the whole platform, or one city's operation of it?",
-        'Does either one carry inventory and delivery risk, or are both just taking a cut?',
+        'Does the ticketing business hold exclusive venue contracts, or does it bid for each event?',
       ],
       skeleton: [
         'Name what each one sells and who actually pays the fee.',
@@ -367,7 +367,7 @@ export const TEST_3: PracticeTest = {
         'Said you would compare cash from operations to net income over several periods',
       ],
       model:
-        'Profit is measured on accruals and cash is not, so the two can drift apart for years. The first place I would look is working capital. The company books revenue as it runs the payroll, but if it has moved upmarket to larger clients who pay on ninety-day terms, receivables grow faster than sales and every new client consumes cash before it returns any. Second is spending that never appears on the income statement: capital spending above depreciation, where the money left the bank this year while the charge is spread over five, and repayment of loan principal, which shows up nowhere on the income statement at all. Third, the profit itself could be flattered by non-cash gains. What I would actually do is put cash from operations next to net income for the last eight quarters. If that gap is persistent and widening, the profit is not the kind that pays anybody. The weakness in that check is that one bad quarter proves nothing, so I need the trend rather than a single number.',
+        'Profit is measured on accruals and cash is not, so the two can drift apart for years. The first place I would look is working capital. The company books revenue as it runs the payroll, but if it has moved upmarket to larger clients who pay on ninety-day terms, receivables grow faster than sales and every new client consumes cash before it returns any. Second is spending that never appears on the income statement: capital spending above depreciation, where the money left the bank this year while the charge is spread over five, and repayment of loan principal, which shows up nowhere on the income statement at all. Third, the profit itself could be flattered by non-cash gains. What I would actually do is put cash from operations next to net income for the last eight quarters. If that gap is persistent and widening, the profit is not the kind that pays anybody. One bad quarter proves nothing on its own, so I need the pattern across all eight, not a single reading.',
       follows: [
         'Which of those would worry you most as an owner?',
         'If you ran the company, what would you fix first?',
@@ -406,7 +406,7 @@ export const TEST_3: PracticeTest = {
         'Gave a range and named the single assumption the number depends on',
       ],
       model:
-        'I would build it from the bottom and check it two other ways, and I would give a range rather than a point. Start with the users. Forty thousand today, of whom some share would ever pay: if I assume a tenth convert at ten dollars a month, that is about half a million of revenue a year, and at a mature margin of, say, thirty percent that is roughly a hundred and fifty thousand of profit. Then I discount that hard, because the business has never charged anybody, so the conversion rate is my assumption rather than a fact. First cross-check: what would a rival pay to buy forty thousand users rather than acquire them one at a time, at whatever it costs to win one. Second cross-check: replacement cost, meaning what it would take in engineering time to rebuild the product. The weakness is plain. The whole answer hangs on that conversion rate, and moving it from a tenth to a thirtieth cuts the value by two thirds, so that is the number I would test first.',
+        'I would build it from the bottom and check it two other ways, and I would give a range rather than a point. Start with the users. Forty thousand today, of whom some share would ever pay: if I assume a tenth convert at ten dollars a month, that is about half a million of revenue a year, and at a mature margin of, say, thirty percent that is roughly a hundred and fifty thousand of profit. Then I discount that hard, because the business has never charged anybody, so the conversion rate is my assumption rather than a fact. First cross-check: what would a rival pay to buy forty thousand users rather than acquire them one at a time, at whatever it costs to win one. Second cross-check: replacement cost, meaning what it would take in engineering time to rebuild the product. Together those put me at one to three million, which is forty thousand users at twenty-five to seventy-five dollars each. The weakness is plain. The whole answer hangs on that conversion rate, and moving it from a tenth to a thirtieth cuts the value by two thirds, so that is the number I would test first.',
       follows: [
         'Which of your three methods do you trust most, and why?',
         'What would make the value zero?',
@@ -445,7 +445,7 @@ export const TEST_3: PracticeTest = {
         'Named at least one cause outside the company, such as rates or a sector move',
       ],
       model:
-        'Prices move against expectations rather than against facts, so a record number can still be a disappointment. The first thing I would check is the line below the headline. They may have bought those subscribers with discounting or extended free trials, so revenue per subscriber and margin came in short even though the count beat. Second is guidance, because the market prices the next four quarters and not the last one; if management cut the outlook on the call, the good print is already history. Third is the quality of the additions themselves, since promotional subscribers who leave in three months are worth far less than the market had been assuming each one was worth. And it may have nothing to do with the company. Any move splits into a change in earnings and a change in the multiple, so if rates rose that morning or the whole sector sold off, the business did not change and only the price of it did. I would want the margin line and the guidance before I said which, and guessing without them would be a mistake.',
+        'Prices move against expectations rather than against facts, so a record number can still be a disappointment. The first thing I would check is the line below the headline. They may have bought those subscribers with discounting or extended free trials, so revenue per subscriber and margin came in short even though the count beat. Second is guidance, because the market prices the next four quarters and not the last one; if management cut the outlook on the call, the good print is already history. Third is the quality of the additions themselves, since promotional subscribers who leave in three months are worth far less than the market had been assuming each one was worth. And it may have nothing to do with the company. Any move splits into a change in earnings and a change in the multiple, so if rates rose that morning or the whole sector sold off, the business did not change and only the price of it did. I would want the margin line and the guidance before choosing between them. Until I have both, my ranking is a preference rather than a conclusion.',
       follows: [
         'Which of those would worry you most as an owner?',
         'How would you check the discounting story from outside the company?',

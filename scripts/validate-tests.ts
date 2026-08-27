@@ -155,6 +155,22 @@ for (const test of TESTS) {
   }
 }
 
+// ---- the format hint must never contain the answer ----
+for (const test of TESTS) {
+  for (const item of test.items) {
+    if (item.kind !== 'num' || !item.format) continue
+    const shown = [...item.format.matchAll(/[\d][\d,.]*/g)].map((m) => Number(m[0].replace(/,/g, '')))
+    if (shown.includes(item.answer)) {
+      fails.push({
+        test: `T${test.n}`,
+        shell: item.shell,
+        rule: 'format-leaks-answer',
+        detail: `the worked example in "${item.format}" is the answer`,
+      })
+    }
+  }
+}
+
 // ---- cross-form parallelism ----
 for (const s of SHELLS) {
   const siblings = TESTS.map((t) => ({ t, item: t.items.find((i) => i.shell === s.code) }))
@@ -172,6 +188,27 @@ for (const s of SHELLS) {
       rule: 'sibling-step-count',
       detail: `worked steps range ${Math.min(...numSteps)}–${Math.max(...numSteps)}; a wide gap breaks parallelism`,
     })
+  }
+}
+
+// ---- siblings must not share a numeric answer ----
+// A learner takes all five forms. If S11 returns 8x every time, the later forms
+// measure recall of the answer rather than the arithmetic.
+for (const s of SHELLS) {
+  const answers = TESTS.map((t) => t.items.find((i) => i.shell === s.code)).flatMap((i) =>
+    i && i.kind === 'num' ? [i.answer] : [],
+  )
+  const seen = new Map<number, number>()
+  for (const a of answers) seen.set(a, (seen.get(a) ?? 0) + 1)
+  for (const [a, n] of seen) {
+    if (n > 1) {
+      fails.push({
+        test: 'ALL',
+        shell: s.code,
+        rule: 'sibling-answer-collision',
+        detail: `${n} forms return ${a} — vary the incidentals, not just the wording`,
+      })
+    }
   }
 }
 

@@ -45,7 +45,7 @@ export const TEST_1: PracticeTest = {
     {
       shell: 'S03',
       kind: 'mc',
-      stem: "A clothing retailer's rent, head office salaries and marketing all rose sharply this year, while the prices it pays suppliers held flat. Which margin captures that change rather than the product's own economics?",
+      stem: "A clothing retailer's rent, head office salaries and marketing all rose sharply this year, while the prices it pays suppliers held flat. Which margin captures that change without also reflecting how the retailer is financed?",
       choices: [
         'Gross margin, after the direct cost of goods',
         'Operating margin, after the cost of running it',
@@ -140,7 +140,7 @@ export const TEST_1: PracticeTest = {
       why: 'A call is a right and not an obligation, so you walk away whenever the strike is worse than the market. That is what caps the buyer loss at the premium already paid.',
       traps: {
         0: 'You picked this if you are treating a call like a forward. A forward obliges you to buy; an option does not.',
-        1: 'You picked this if you swapped sides of the trade. The seller of the option carries the obligation, not you.',
+        1: 'You picked this if you are settling it like a forward, where whoever is on the wrong side of the price pays the difference. An option pays from seller to buyer or not at all.',
       },
       rule: 'The option buyer holds a right and a capped loss; the seller collects a premium and holds the obligation.',
     },
@@ -200,7 +200,7 @@ export const TEST_1: PracticeTest = {
       kind: 'num',
       stem: 'A car wash charges $20 a wash. Water, soap and the labour for that wash cost $8. Rent and salaries come to $54,000 a year. How many washes does it take to break even?',
       answer: 4500,
-      format: 'Answer as a number of washes, e.g. 4500',
+      format: 'Answer as a number of washes, e.g. 3200',
       work: [
         { label: 'Price per wash', value: '+$20' },
         { label: 'Variable cost per wash', value: '($8)', running: 'Contribution $12' },
@@ -291,8 +291,8 @@ export const TEST_1: PracticeTest = {
       skeleton: [
         'Say which one you are taking before you justify it.',
         'Set the four things you will compare: revenue quality, working capital, fixed costs, and ease of entry.',
-        'Gym: dues collected in advance, and many members pay without turning up.',
-        'Car wash: paid per visit, weather-dependent, but a small site and simple staffing.',
+        'Run the gym through all four drivers before you touch the car wash.',
+        'Run the car wash through the same four, in the same order.',
         'Both have weak moats, so decide on cash timing and location.',
         'Land on one and name the condition that would flip you.',
       ],
@@ -413,7 +413,7 @@ export const TEST_1: PracticeTest = {
       model:
         'Record sales is a fact, and prices move on surprises. My first guess is that sales beat while something below the top line missed. A grocer can buy volume with promotions, so the aisles get busier while gross margin falls and profit lands short of what the market expected. The second candidate is guidance: the market prices next year rather than last quarter, so if management flagged softer demand or rising wage costs, a good print can still be sold. Third is the quality of the sales, a one-off week of stocking up, or inventory and receivables growing faster than sales, which says the growth may not convert into cash. And it might have nothing to do with the company at all: if rates moved or the whole sector de-rated that morning, the multiple fell rather than the business. I would ask for the gross margin line and the guidance first. The weakness is that without knowing how the sector traded, I cannot rule that last explanation out.',
       follows: [
-        'Which of those would worry you most as an owner?',
+        'If you could see one number tomorrow morning, which would it be?',
         'How would you check the discounting story?',
         'What would make you buy it after the fall?',
       ],
