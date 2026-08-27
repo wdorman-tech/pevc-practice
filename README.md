@@ -5,10 +5,14 @@ degree. Two pieces of teaching and five practice tests over the same material.
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # tsc -b && vite build
+npm run dev       # http://localhost:5173
+npm run build     # tsc -b && vite build
 npm run lint
+npm run validate  # checks all 100 test items against the item-writing contract
 ```
+
+Or double-click **Start The Tick Sheet.command**, which installs, builds and serves
+the built app without a terminal.
 
 ## What is in it
 
@@ -84,3 +88,22 @@ src/
 ```
 
 Progress lives in `localStorage` under `ticksheet:v2` and nowhere else. No accounts, no backend.
+
+## The validator
+
+`npm run validate` is the guardrail on the content. It settles everything a machine
+can settle and stays out of everything it cannot:
+
+- shell coverage, order, and kind against the blueprint
+- exactly three options, one key, traps keyed to exactly the two distractors
+- option homogeneity, length balance, and that the key is never uniquely longest
+- stem, `why` and `rule` word and sentence caps
+- worked-example ledgers carry explicit signs
+- **the format hint never contains the answer** — this silently voided most of the
+  numeric section before it was caught
+- **no two forms return the same answer for the same shell** — otherwise the later
+  forms measure recall of a number rather than the arithmetic
+- no stem repeats across forms
+
+Whether a distractor encodes a misconception a real learner holds, and whether a
+model answer is any good, are judgment calls and are deliberately not in there.
