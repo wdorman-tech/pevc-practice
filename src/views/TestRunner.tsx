@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button } from '../components/bits'
-import { SHELL_BY_CODE, type Item, type McItem, type NumItem, type OpenItem, type PracticeTest } from '../content/tests/types'
+import { Btn, Checklist, Chip, Clarify, ModelAnswer, QuestionHead, Skeleton, Tick } from '../components/ui'
+import { modCode, modName } from '../content/concepts'
+import {
+  SHELL_BY_CODE,
+  criteriaCount,
+  type Item,
+  type McItem,
+  type NumItem,
+  type OpenItem,
+  type PracticeTest,
+} from '../content/tests/types'
 import { seededShuffle, type Store } from '../lib/store'
 
 type Confidence = 'low' | 'med' | 'high'
@@ -24,6 +33,13 @@ const PART_NOTE: Record<string, string> = {
     'No right answer to click. Commit to an answer first, then check yourself against the model and the criteria.',
 }
 
+/** The module a shell draws on, written the way the concepts view writes it. */
+function shellCat(shell: string): string {
+  const s = SHELL_BY_CODE[shell]
+  if (!s) return 'question'
+  return `${modCode(s.domain)} — ${modName(s.domain)}`
+}
+
 export function TestRunner({
   test,
   store,
@@ -41,7 +57,7 @@ export function TestRunner({
 
   const item = test.items[i]
   const part = SHELL_BY_CODE[item?.shell]?.part ?? 'recall'
-  const openTotal = test.items.reduce((n, x) => n + (x.kind === 'open' ? x.criteria.length : 0), 0)
+  const openTotal = criteriaCount(test)
   const isFirstOfPart = i === 0 || SHELL_BY_CODE[test.items[i - 1].shell]?.part !== part
 
   useEffect(() => {
@@ -74,39 +90,33 @@ export function TestRunner({
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
-      <div className="mb-6 flex items-baseline justify-between gap-4">
-        <div>
-          <div className="label">
-            {test.title} · question {i + 1} of {test.items.length}
-          </div>
-          <div className="text-bone-500 mt-1 font-mono text-[11px]">{PART_LABEL[part]}</div>
-        </div>
-        <button
-          type="button"
-          onClick={onExit}
-          className="text-bone-500 hover:text-bone-300 cursor-pointer font-mono text-[10px] tracking-[0.16em] uppercase"
-        >
+    <>
+      <div className="mono eyebrow">08 — test in progress</div>
+
+      <div className="mock-bar">
+        <span className="mono">
+          {test.title} · question {i + 1} of {test.items.length} · {PART_LABEL[part]}
+        </span>
+        <button type="button" className="link mono" onClick={onExit}>
           Leave
         </button>
       </div>
 
-      <div className="bg-well mb-8 h-1 w-full overflow-hidden rounded-full">
-        <div
-          className="bg-ember-500 h-full rounded-full"
-          style={{ width: `${(i / test.items.length) * 100}%`, transition: 'width 400ms ease' }}
-        />
+      <div className="prog">
+        <div style={{ width: `${(i / test.items.length) * 100}%` }} />
       </div>
 
       {isFirstOfPart && (
-        <div className="border-line bg-well mb-6 rounded-xl border p-4">
-          <div className="label">{PART_LABEL[part]}</div>
-          <p className="text-bone-300 mt-1.5 text-[14px] leading-[1.6]">{PART_NOTE[part]}</p>
+        <div className="card band">
+          <div className="mono eyebrow">{PART_LABEL[part]}</div>
+          <p className="note">{PART_NOTE[part]}</p>
         </div>
       )}
 
-      <ItemCard key={item.shell} item={item} onNext={advance} />
-    </div>
+      <div className="card q-card">
+        <ItemCard key={item.shell} item={item} onNext={advance} />
+      </div>
+    </>
   )
 }
 
@@ -130,25 +140,26 @@ function ConfidenceRow({ value, onPick }: { value: Confidence | null; onPick: (c
     { id: 'high', label: 'Certain' },
   ]
   return (
-    <div className="mt-6">
-      <div className="label">how sure are you</div>
-      <div className="mt-2 flex gap-2">
+    <div className="q-sec">
+      <div className="mono eyebrow">how sure are you</div>
+      <div className="conf">
         {opts.map((o) => (
-          <button
-            key={o.id}
-            type="button"
-            onClick={() => onPick(o.id)}
-            className={`cursor-pointer rounded-lg border px-3 py-1.5 font-mono text-[10px] tracking-[0.14em] uppercase transition-colors ${
-              value === o.id
-                ? 'border-ember-500/50 bg-ember-500/10 text-ember-700'
-                : 'border-line text-bone-500 hover:text-bone-300'
-            }`}
-          >
+          <Chip key={o.id} on={value === o.id} onClick={() => onPick(o.id)}>
             {o.label}
-          </button>
+          </Chip>
         ))}
       </div>
     </div>
+  )
+}
+
+/** The one rule to carry forward, shown last in every piece of feedback. */
+function Carry({ rule }: { rule: string }) {
+  return (
+    <p className="carry">
+      <b className="mono">carry this</b>
+      {rule}
+    </p>
   )
 }
 
@@ -175,25 +186,15 @@ function Feedback({
   children?: React.ReactNode
 }) {
   return (
-    <div
-      className={`rise mt-6 rounded-2xl border p-5 ${
-        correct ? 'border-moss-400/40 bg-moss-400/6' : 'border-clay-400/40 bg-clay-400/5'
-      }`}
-    >
-      <div className={`label ${correct ? 'text-moss-400' : 'text-clay-400'}`}>
+    <div className={correct ? 'verdict good' : 'verdict bad'}>
+      <div className="mono verdict-l">
         {correct ? 'correct' : overconfident ? 'you were certain — here is the break' : 'not this one'}
       </div>
-      <p className="text-bone-100 mt-1.5 text-[16px] leading-[1.5] font-semibold">{keyLine}</p>
-      <p className="text-bone-300 mt-3 text-[15px] leading-[1.65]">{why}</p>
-      {trap && (
-        <p className="border-clay-400/40 text-bone-300 mt-3 border-l-2 pl-3.5 text-[14.5px] leading-[1.6]">
-          {trap}
-        </p>
-      )}
+      <div className="verdict-key">{keyLine}</div>
+      <p className="verdict-why">{why}</p>
+      {trap && <p className="trap">{trap}</p>}
       {children}
-      <p className="border-line mt-4 border-t pt-3 font-mono text-[12px] leading-[1.55] text-bone-500">
-        <span className="text-ember-700">carry this →</span> {rule}
-      </p>
+      <Carry rule={rule} />
     </div>
   )
 }
@@ -220,30 +221,25 @@ function McCard({ item, onNext }: { item: McItem; onNext: (r: Result) => void })
 
   return (
     <div>
-      <p className="text-bone-100 text-[19px] leading-[1.5]">{item.stem}</p>
+      <div className="serif q-text">{item.stem}</div>
 
-      <div className="mt-6 space-y-2.5">
+      <div className="q-sec">
         {order.map((authored) => {
-          const isKey = authored === item.answer
-          const isPicked = picked === authored
           const shown = picked !== null
+          const cls = !shown
+            ? 'opt'
+            : authored === item.answer
+              ? 'opt key'
+              : picked === authored
+                ? 'opt wrong'
+                : 'opt dim'
           return (
             <button
               key={authored}
               type="button"
+              className={cls}
               disabled={picked !== null || conf === null}
               onClick={() => submit(authored)}
-              className={`w-full rounded-xl border px-4 py-3.5 text-left text-[15.5px] leading-[1.5] transition-colors ${
-                !shown
-                  ? conf === null
-                    ? 'border-line text-bone-500 cursor-not-allowed'
-                    : 'border-line text-bone-300 hover:border-ember-500/50 hover:text-bone-100 cursor-pointer'
-                  : isKey
-                    ? 'border-moss-400/60 bg-moss-400/8 text-bone-100'
-                    : isPicked
-                      ? 'border-clay-400/60 bg-clay-400/6 text-bone-100'
-                      : 'border-line text-bone-500'
-              }`}
             >
               {item.choices[authored]}
             </button>
@@ -251,12 +247,8 @@ function McCard({ item, onNext }: { item: McItem; onNext: (r: Result) => void })
         })}
       </div>
 
-      {picked === null && conf === null && (
-        <ConfidenceRow value={conf} onPick={setConf} />
-      )}
-      {picked === null && conf !== null && (
-        <p className="text-bone-500 mt-4 font-mono text-[11px]">Pick an answer.</p>
-      )}
+      {picked === null && conf === null && <ConfidenceRow value={conf} onPick={setConf} />}
+      {picked === null && conf !== null && <div className="mono hint">Pick an answer.</div>}
 
       {picked !== null && (
         <>
@@ -268,14 +260,9 @@ function McCard({ item, onNext }: { item: McItem; onNext: (r: Result) => void })
             trap={!correct ? item.traps[picked] : undefined}
             rule={item.rule}
           />
-          <div className="mt-5 flex justify-end">
-            <Button
-              variant="solid"
-              onClick={() => onNext({ shell: item.shell, correct, confidence: conf })}
-            >
-              Next →
-            </Button>
-          </div>
+          <Btn tone="red" onClick={() => onNext({ shell: item.shell, correct, confidence: conf })}>
+            Next question
+          </Btn>
         </>
       )}
     </div>
@@ -300,32 +287,32 @@ function NumCard({ item, onNext }: { item: NumItem; onNext: (r: Result) => void 
 
   return (
     <div>
-      <p className="text-bone-100 text-[19px] leading-[1.5]">{item.stem}</p>
-      {item.format && <p className="text-bone-500 mt-2 font-mono text-[11px]">{item.format}</p>}
+      <div className="serif q-text">{item.stem}</div>
+      {item.format && <div className="mono hint">{item.format}</div>}
 
-      <div className="mt-6 flex items-center gap-3">
-        <input
-          value={raw}
-          onChange={(e) => setRaw(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && valid && conf !== null && !submitted) setSubmitted(true)
-          }}
-          disabled={submitted}
-          inputMode="decimal"
-          placeholder="your answer"
-          aria-label="Your answer"
-          className="border-line focus:border-ember-500/60 bg-ash-900 text-bone-100 w-44 rounded-xl border px-4 py-3 font-mono text-[16px] outline-none disabled:opacity-60"
-        />
-        {item.unit && <span className="text-bone-500 font-mono text-[13px]">{item.unit.trim()}</span>}
+      <div className="q-sec">
+        <div className="answer-row">
+          <input
+            value={raw}
+            onChange={(e) => setRaw(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && valid && conf !== null && !submitted) setSubmitted(true)
+            }}
+            disabled={submitted}
+            inputMode="decimal"
+            placeholder="your answer"
+            aria-label="Your answer"
+            className="answer mono"
+          />
+          {item.unit && <span className="mono hint">{item.unit.trim()}</span>}
+        </div>
       </div>
 
       {!submitted && conf === null && <ConfidenceRow value={conf} onPick={setConf} />}
       {!submitted && conf !== null && (
-        <div className="mt-5">
-          <Button variant="solid" onClick={() => valid && setSubmitted(true)}>
-            Check
-          </Button>
-        </div>
+        <Btn tone="red" onClick={() => valid && setSubmitted(true)}>
+          Check
+        </Btn>
       )}
 
       {submitted && (
@@ -337,33 +324,20 @@ function NumCard({ item, onNext }: { item: NumItem; onNext: (r: Result) => void 
             why={item.why}
             rule={item.rule}
           >
-            <div className="border-line bg-ash-900/60 mt-4 overflow-hidden rounded-xl border">
-              <div className="border-line label border-b px-4 py-2">the arithmetic</div>
+            <div className="work">
+              <div className="mono work-h">the arithmetic</div>
               {item.work.map((w, n) => (
-                <div key={n} className="border-line border-b px-4 py-2.5 last:border-0">
-                  <div className="flex items-baseline justify-between gap-5">
-                    <span className="text-bone-300 text-[14px] leading-snug">{w.label}</span>
-                    <span className="text-bone-100 font-mono text-[13px] whitespace-nowrap">
-                      {w.value}
-                    </span>
-                  </div>
-                  {w.running && (
-                    <div className="text-bone-500 mt-1 text-right font-mono text-[11px]">
-                      {w.running}
-                    </div>
-                  )}
+                <div key={n} className="work-r">
+                  <span>{w.label}</span>
+                  <span className="work-v">{w.value}</span>
+                  {w.running && <span className="work-run">{w.running}</span>}
                 </div>
               ))}
             </div>
           </Feedback>
-          <div className="mt-5 flex justify-end">
-            <Button
-              variant="solid"
-              onClick={() => onNext({ shell: item.shell, correct, confidence: conf })}
-            >
-              Next →
-            </Button>
-          </div>
+          <Btn tone="red" onClick={() => onNext({ shell: item.shell, correct, confidence: conf })}>
+            Next question
+          </Btn>
         </>
       )}
     </div>
@@ -391,133 +365,54 @@ function OpenCard({
 
   return (
     <div>
-      <p className="text-bone-100 text-[19px] leading-[1.5]">{item.stem}</p>
-      <p className="text-bone-500 mt-3 text-[14px] leading-[1.6]">
-        <span className="text-ember-700 font-mono text-[11px] tracking-[0.12em] uppercase">tests</span>{' '}
-        {item.tests}
-      </p>
+      <QuestionHead cat={shellCat(item.shell)} question={item.stem} tests={item.tests} big />
 
       {!committed && (
         <>
-          <div className="panel mt-6 p-5">
-            <div className="label">before you answer</div>
-            <p className="text-bone-300 mt-2 text-[14.5px] leading-[1.6]">
-              Ask one or two of these, then say your structure out loud, then reason. Write what you
-              would actually say — not notes.
-            </p>
-            <ul className="mt-3 space-y-1.5">
-              {item.clarify.map((c) => (
-                <li key={c} className="text-bone-300 pl-4 -indent-4 text-[14.5px] leading-[1.55]">
-                  · {c}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={7}
-            placeholder="Your answer, out loud, in writing."
-            aria-label="Your answer"
-            className="border-line focus:border-ember-500/60 bg-ash-900 text-bone-100 mt-5 w-full resize-y rounded-xl border px-4 py-3.5 text-[15.5px] leading-[1.6] outline-none"
-          />
-          <div className="mt-3 flex items-center justify-between gap-4">
-            <span className="text-bone-500 font-mono text-[11px]">
-              {words} words{enough ? '' : ' · at least 25 before you can compare'}
-            </span>
-            <Button variant="solid" onClick={() => enough && setCommitted(true)}>
-              Commit and compare
-            </Button>
+          <Clarify items={item.clarify} />
+          <div className="q-sec">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={7}
+              placeholder="Your answer, out loud, in writing."
+              aria-label="Your answer"
+              className="draft"
+            />
+            <div className="draft-bar">
+              <span className="mono counter">
+                {words} words{enough ? '' : ' · at least 25 before you can compare'}
+              </span>
+              <Btn tone="red" onClick={() => enough && setCommitted(true)}>
+                Commit and compare
+              </Btn>
+            </div>
           </div>
         </>
       )}
 
       {committed && (
-        <div className="rise mt-6 space-y-5">
-          <div className="panel p-5">
-            <div className="label">the structure that scores</div>
-            <ol className="mt-2.5 space-y-1.5">
-              {item.skeleton.map((s, n) => (
-                <li key={s} className="text-bone-300 flex gap-3 text-[14.5px] leading-[1.55]">
-                  <span className="text-bone-500 font-mono text-[11px] leading-6">{n + 1}</span>
-                  <span>{s}</span>
-                </li>
-              ))}
-            </ol>
+        <>
+          <div className="q-sec">
+            <div className="mono eyebrow">the structure that scores</div>
+            <Skeleton items={item.skeleton} />
           </div>
 
-          <div className="border-ember-500/30 bg-ember-500/4 rounded-2xl border p-5">
-            <div className="label text-ember-700">a model answer</div>
-            <p className="text-bone-100 mt-2 text-[15.5px] leading-[1.7]">{item.model}</p>
-          </div>
+          <ModelAnswer model={item.model} follows={item.follows} flags={item.flags} label="a model answer" />
 
-          <div className="panel p-5">
-            <div className="label">score yourself — did you actually say this?</div>
-            <div className="mt-3 space-y-2">
-              {item.criteria.map((c, n) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setHits((h) => h.map((x, k) => (k === n ? !x : x)))}
-                  className={`flex w-full cursor-pointer items-start gap-3 rounded-lg border px-3.5 py-2.5 text-left text-[14.5px] leading-[1.5] transition-colors ${
-                    hits[n]
-                      ? 'border-moss-400/50 bg-moss-400/8 text-bone-100'
-                      : 'border-line text-bone-300 hover:border-line-strong'
-                  }`}
-                >
-                  <span
-                    className={`mt-0.5 grid h-4 w-4 flex-none place-items-center rounded border font-mono text-[10px] ${
-                      hits[n] ? 'border-moss-400 bg-moss-400 text-white' : 'border-line-strong'
-                    }`}
-                  >
-                    {hits[n] ? '✓' : ''}
-                  </span>
-                  {c}
-                </button>
-              ))}
-            </div>
-            <p className="text-bone-500 mt-3 font-mono text-[11px]">
-              {hits.filter(Boolean).length} of {item.criteria.length} · be honest, nobody sees this
-            </p>
-          </div>
+          <Checklist
+            title="score yourself — did you actually say this?"
+            items={item.criteria}
+            hits={hits}
+            onToggle={(n) => setHits((h) => h.map((x, k) => (k === n ? !x : x)))}
+          />
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="panel p-5">
-              <div className="label">they will push with</div>
-              <ul className="mt-2 space-y-1.5">
-                {item.follows.map((f) => (
-                  <li key={f} className="text-bone-300 pl-4 -indent-4 text-[14px] leading-[1.55]">
-                    · {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="panel p-5">
-              <div className="label">how people lose this one</div>
-              <ul className="mt-2 space-y-1.5">
-                {item.flags.map((f) => (
-                  <li key={f} className="text-bone-300 pl-4 -indent-4 text-[14px] leading-[1.55]">
-                    · {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          <Carry rule={item.rule} />
 
-          <p className="border-line rounded-xl border px-4 py-3 font-mono text-[12px] leading-[1.55] text-bone-500">
-            <span className="text-ember-700">carry this →</span> {item.rule}
-          </p>
-
-          <div className="flex justify-end">
-            <Button
-              variant="solid"
-              onClick={() => onNext(null, { shell: item.shell, n: hits.filter(Boolean).length })}
-            >
-              Next →
-            </Button>
-          </div>
-        </div>
+          <Btn tone="red" onClick={() => onNext(null, { shell: item.shell, n: hits.filter(Boolean).length })}>
+            Next question
+          </Btn>
+        </>
       )}
     </div>
   )
@@ -536,7 +431,7 @@ function Report({
 }) {
   const right = results.filter((r) => r.correct).length
   const pct = results.length ? Math.round((right / results.length) * 100) : 0
-  const openTotal = test.items.reduce((n, x) => n + (x.kind === 'open' ? x.criteria.length : 0), 0)
+  const openTotal = criteriaCount(test)
   const openHit = Object.values(selfHits).reduce((a, b) => a + b, 0)
 
   const missed = results.filter((r) => !r.correct)
@@ -547,13 +442,14 @@ function Report({
   }, [])
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12">
-      <div className="label">{test.title} · finished</div>
-      <h1 className="font-display mt-1 text-5xl leading-none tracking-tight">
-        {right} of {results.length} scored, {openHit} of {openTotal} criteria hit
-      </h1>
+    <>
+      <div className="mono eyebrow">08 — {test.title} · finished</div>
+      <div className="serif big-score">
+        {right} of {results.length} <span className="mono">scored</span> · {openHit} of {openTotal}{' '}
+        <span className="mono">criteria hit</span>
+      </div>
 
-      <p className="text-bone-300 mt-5 text-[16px] leading-[1.7]">
+      <p className="note">
         {results.length === 0
           ? 'You left before the scored questions, so there is nothing to read here. The written questions are the ones that decide an interview, but the first sixteen are what tell you whether the basics are in place.'
           : pct >= 80
@@ -564,11 +460,11 @@ function Report({
       </p>
 
       {blindSpots.length > 0 && (
-        <div className="border-clay-400/40 bg-clay-400/5 mt-8 rounded-2xl border p-5">
-          <div className="label text-clay-400">
+        <div className="card red">
+          <div className="mono eyebrow">
             {blindSpots.length} confident {blindSpots.length === 1 ? 'miss' : 'misses'}
           </div>
-          <p className="text-bone-300 mt-2 text-[15px] leading-[1.65]">
+          <p className="note">
             You were certain and wrong on{' '}
             {blindSpots.map((b) => SHELL_BY_CODE[b.shell]?.skill.toLowerCase()).join('; ')}. These are
             the ones worth rereading — an error you held confidently is the one most likely to come out
@@ -577,31 +473,18 @@ function Report({
         </div>
       )}
 
-      <div className="mt-8 grid gap-3 sm:grid-cols-2">
+      <div className="result-grid">
         {results.map((r) => (
-          <div
-            key={r.shell}
-            className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${
-              r.correct ? 'border-line' : 'border-clay-400/40 bg-clay-400/4'
-            }`}
-          >
-            <span
-              className={`mt-0.5 font-mono text-[11px] ${r.correct ? 'text-moss-400' : 'text-clay-400'}`}
-            >
-              {r.correct ? '✓' : '✕'}
-            </span>
-            <span className="text-bone-300 text-[13.5px] leading-[1.5]">
-              {SHELL_BY_CODE[r.shell]?.skill}
-            </span>
+          <div key={r.shell}>
+            <span className={r.correct ? 'rm ok' : 'rm'}>{r.correct ? <Tick size={13} /> : '✕'}</span>
+            <span>{SHELL_BY_CODE[r.shell]?.skill}</span>
           </div>
         ))}
       </div>
 
-      <div className="mt-10 flex gap-3">
-        <Button variant="solid" onClick={onExit}>
-          Back to the tests
-        </Button>
-      </div>
-    </div>
+      <Btn tone="red" onClick={onExit}>
+        Back to the tests
+      </Btn>
+    </>
   )
 }

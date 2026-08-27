@@ -1,149 +1,169 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Button } from '../components/bits'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { Btn } from '../components/ui'
 import { MATH_GENS, type MathItem } from '../content/mathgen'
-import type { Store } from '../lib/store'
+import { stats, type Store } from '../lib/store'
 
-const SPRINT = 120
+/** Sixty seconds a round, exactly as the sheet says on the page. */
+const ROUND = 60
+
+type Phase = 'idle' | 'run' | 'done'
+type Feed = { ok: boolean; msg: string }
+
+const drawProblem = (): MathItem => MATH_GENS[Math.floor(Math.random() * MATH_GENS.length)]()
+
+/** The sheet's tolerance: two decimal places, or a fifth of a percent on big numbers. */
+const close = (guess: number, a: number) => Math.abs(guess - a) < Math.max(0.02, Math.abs(a) * 0.002)
 
 export function MathDrill({ store }: { store: Store }) {
-  const [item, setItem] = useState<MathItem | null>(null)
+  const [phase, setPhase] = useState<Phase>('idle')
+  const [left, setLeft] = useState(ROUND)
+  const [prob, setProb] = useState<MathItem | null>(null)
   const [raw, setRaw] = useState('')
-  const [verdict, setVerdict] = useState<'right' | 'wrong' | null>(null)
-  const [left, setLeft] = useState(SPRINT)
-  const [running, setRunning] = useState(false)
-  const [round, setRound] = useState({ right: 0, asked: 0 })
+  const [feed, setFeed] = useState<Feed | null>(null)
+  const [score, setScore] = useState(0)
+  const [tries, setTries] = useState(0)
+  const [best, setBest] = useState(0)
+  const [answered, setAnswered] = useState(false)
+
   const input = useRef<HTMLInputElement>(null)
-
-  const draw = useCallback(() => {
-    const gen = MATH_GENS[Math.floor(Math.random() * MATH_GENS.length)]
-    setItem(gen())
-    setRaw('')
-    setVerdict(null)
-  }, [])
+  const answerId = useId()
+  const lifetime = stats(store.data)
 
   useEffect(() => {
-    if (!running) return
-    const t = setInterval(() => {
-      setLeft((s) => {
-        if (s <= 1) {
-          setRunning(false)
-          return 0
-        }
-        return s - 1
-      })
-    }, 1000)
+    if (phase !== 'run') return
+    const t = setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000)
     return () => clearInterval(t)
-  }, [running])
+  }, [phase])
 
   useEffect(() => {
-    if (running) input.current?.focus()
-  }, [running, item])
+    if (phase !== 'run' || left > 0) return
+    setPhase('done')
+    setBest((b) => Math.max(b, score))
+  }, [phase, left, score])
+
+  useEffect(() => {
+    if (phase === 'run') input.current?.focus()
+  }, [phase, prob])
 
   const start = () => {
-    setRound({ right: 0, asked: 0 })
-    setLeft(SPRINT)
-    setRunning(true)
-    draw()
+    setScore(0)
+    setTries(0)
+    setFeed(null)
+    setRaw('')
+    setAnswered(false)
+    setProb(drawProblem())
+    setLeft(ROUND)
+    setPhase('run')
   }
 
-  const submit = () => {
-    if (!item || verdict !== null || !running) return
-    const guess = Number(raw.replace(/[$,%\sx]/g, ''))
-    const ok = Number.isFinite(guess) && Math.abs(guess - item.a) < 0.51
-    setVerdict(ok ? 'right' : 'wrong')
-    setRound((r) => ({ right: r.right + (ok ? 1 : 0), asked: r.asked + 1 }))
+  const submit = useCallback(() => {
+    if (phase !== 'run' || !prob || answered) return
+    const typed = raw.trim()
+    if (typed === '') return
+    const n = parseFloat(typed.replace(/[,$%\sx]/g, ''))
+    const ok = !Number.isNaN(n) && close(n, prob.a)
+    setTries((t) => t + 1)
+    if (ok) setScore((s) => s + 1)
+    setFeed({ ok, msg: ok ? 'Right.' : `It was ${Math.round(prob.a * 100) / 100}.` })
+    setAnswered(true)
     store.recordMath(ok)
-  }
+  }, [phase, prob, raw, answered, store])
 
-  const mmss = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`
-  const lifetime = store.data.math
+  const next = useCallback(() => {
+    if (phase !== 'run') return
+    setProb(drawProblem())
+    setRaw('')
+    setAnswered(false)
+  }, [phase])
+
+  const clock = phase === 'run' ? `${String(left).padStart(2, '0')}s` : phase === 'done' ? 'time' : '60s'
+
+  const round =
+    phase === 'idle' && tries === 0
+      ? `best ${best}`
+      : `${score} correct / ${tries} attempted · best ${best}`
+  const tally =
+    lifetime.mathTotal > 0
+      ? `${round} · lifetime ${lifetime.math.right} of ${lifetime.mathTotal}`
+      : round
+
+  const advice =
+    score >= 12
+      ? 'That is desk speed. Keep it warm, and move your time to the gym questions.'
+      : score >= 7
+        ? 'Solid. The gap between here and fluent is usually the multiple and margin questions — run it again and watch which ones cost you time.'
+        : 'Slow down and set the numbers up cleanly rather than guessing. Speed comes from structure, not from rushing.'
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-10">
-      <div className="label">05 — math</div>
-      <h1 className="font-display mt-1 text-4xl leading-[1.05] tracking-tight">
-        Do the arithmetic out loud, and be right.
-      </h1>
-      <p className="text-bone-300 mt-4 text-[17px] leading-[1.65]">
-        Nobody is impressed by mental math. They are unimpressed by someone who stalls on 15% of 400
-        while explaining a business. Two minutes, as many as you can.
+    <>
+      <div className="mono eyebrow">06 — math</div>
+      <h1 className="serif h1">Do the arithmetic out loud, and do it fast.</h1>
+      <p className="lede">
+        Half of business intuition questions collapse into a two-step calculation. Being able to run
+        it in your head, while talking, is what makes a reasoned answer sound like a confident one.
+        Sixty seconds a round.
       </p>
 
-      {!running && (
-        <div className="panel mt-8 p-6 text-center">
-          <div className="text-bone-500 font-mono text-[11px]">
-            {round.asked > 0
-              ? `Last sprint: ${round.right} of ${round.asked}`
-              : `Lifetime: ${lifetime.right} right, ${lifetime.wrong} wrong`}
-          </div>
-          <div className="mt-4">
-            <Button variant="solid" onClick={start}>
-              {round.asked > 0 ? 'Go again' : 'Start a two-minute sprint'}
-            </Button>
-          </div>
+      <div className="card sprint">
+        <div className="sprint-head">
+          <div className="mono clock">{clock}</div>
+          <div className="mono sprint-score">{tally}</div>
         </div>
-      )}
 
-      {running && item && (
-        <div className="panel mt-8 p-6">
-          <div className="flex items-baseline justify-between">
-            <span className="text-bone-500 font-mono text-[11px]">
-              {round.right} / {round.asked}
-            </span>
-            <span
-              className={`font-mono text-[22px] ${left <= 15 ? 'text-clay-400' : 'text-bone-500'}`}
-            >
-              {mmss}
-            </span>
-          </div>
-
-          <p className="text-bone-100 mt-5 text-[19px] leading-[1.45]">{item.q}</p>
-          {item.hint && <p className="text-bone-500 mt-1.5 font-mono text-[11px]">{item.hint}</p>}
-
-          <div className="mt-5 flex gap-3">
-            <input
-              ref={input}
-              value={raw}
-              onChange={(e) => setRaw(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== 'Enter') return
-                if (verdict === null) submit()
-                else draw()
-              }}
-              inputMode="decimal"
-              placeholder="answer"
-              aria-label="Your answer"
-              className="border-line focus:border-ember-500/60 bg-ash-900 text-bone-100 w-40 rounded-xl border px-4 py-3 font-mono text-[16px] outline-none"
-            />
-            {verdict === null ? (
-              <Button variant="solid" onClick={submit}>
-                Check
-              </Button>
-            ) : (
-              <Button variant="solid" onClick={draw}>
-                Next →
-              </Button>
-            )}
-          </div>
-
-          {verdict && (
-            <p
-              className={`rise mt-4 font-mono text-[13px] ${
-                verdict === 'right' ? 'text-moss-400' : 'text-clay-400'
-              }`}
-            >
-              {verdict === 'right' ? 'Right.' : `No — it is ${item.a}.`}
+        {phase === 'idle' && (
+          <>
+            <p className="note">
+              Percentages, multiples, margins, the EV bridge, the rule of 72, and break-even volume.
+              Type the number and hit enter.
             </p>
-          )}
-        </div>
-      )}
+            <Btn tone="red" onClick={start}>
+              Start the sprint
+            </Btn>
+          </>
+        )}
 
-      {!running && left === 0 && (
-        <p className="text-bone-300 mt-5 text-center text-[15px] leading-[1.6]">
-          Time. {round.right} of {round.asked}. The ones you missed are worth redoing on paper, slowly,
-          before you sprint again.
-        </p>
-      )}
-    </div>
+        {phase === 'run' && prob && (
+          <>
+            <div className="serif prob">{prob.q}</div>
+            {prob.hint && <div className="mono hint">{prob.hint}</div>}
+            <div className="answer-row">
+              <label htmlFor={answerId} className="hidden">
+                Your answer
+              </label>
+              <input
+                id={answerId}
+                ref={input}
+                className="answer mono"
+                value={raw}
+                onChange={(e) => setRaw(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return
+                  e.preventDefault()
+                  if (answered) next()
+                  else submit()
+                }}
+                inputMode="decimal"
+                placeholder="answer"
+                autoComplete="off"
+              />
+              <Btn onClick={() => (answered ? next() : submit())}>Enter</Btn>
+            </div>
+            {feed && <div className={feed.ok ? 'feed mono good' : 'feed mono bad'}>{feed.msg}</div>}
+          </>
+        )}
+
+        {phase === 'done' && (
+          <>
+            <div className="serif big-score">
+              {score} <span className="mono">correct in sixty seconds</span>
+            </div>
+            <p className="note">{advice}</p>
+            <Btn tone="red" onClick={start}>
+              Run it again
+            </Btn>
+          </>
+        )}
+      </div>
+    </>
   )
 }

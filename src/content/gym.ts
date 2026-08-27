@@ -489,3 +489,7 @@ export const GYM: GymItem[] = [
     flags: ["Bluffing.", "Apologising for four sentences.", "Going silent instead of asking."],
   },
 ]
+
+export function catLabel(id: GymCat): string {
+  return CATS.find((c) => c.id === id)?.label ?? ''
+}

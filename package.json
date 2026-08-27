@@ -11,11 +11,8 @@
     "validate": "tsx scripts/validate-tests.ts"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.3.3",
-    "motion": "^12.43.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "tailwindcss": "^4.3.3"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

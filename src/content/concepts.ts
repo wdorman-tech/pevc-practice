@@ -384,3 +384,13 @@ export const CONCEPTS: Concept[] = [
     edge: "Low float explains violent moves that have nothing to do with fundamentals — a small amount of buying pressure hits a thin supply of shares.",
   },
 ]
+
+const BY_ID = new Map(MODULES.map((m) => [m.id, m]))
+
+export function modCode(id: ModuleId): string {
+  return BY_ID.get(id)?.code ?? ''
+}
+
+export function modName(id: ModuleId): string {
+  return BY_ID.get(id)?.name ?? ''
+}

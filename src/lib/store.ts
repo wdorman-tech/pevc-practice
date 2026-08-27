@@ -19,6 +19,8 @@ export type TestAttempt = {
 export type Persisted = {
   /** concept ids the learner has ticked off */
   ticked: string[]
+  /** summer-list entries crossed off */
+  reading: string[]
   /** lesson step ids completed */
   lesson: string[]
   /** gym item ids self-scored, id -> 0..4 */
@@ -29,7 +31,7 @@ export type Persisted = {
   math: { right: number; wrong: number }
 }
 
-const EMPTY: Persisted = { ticked: [], lesson: [], gym: {}, attempts: [], math: { right: 0, wrong: 0 } }
+const EMPTY: Persisted = { ticked: [], reading: [], lesson: [], gym: {}, attempts: [], math: { right: 0, wrong: 0 } }
 
 function load(): Persisted {
   try {
@@ -41,6 +43,7 @@ function load(): Persisted {
       ...parsed,
       math: { ...EMPTY.math, ...(parsed.math ?? {}) },
       gym: { ...(parsed.gym ?? {}) },
+      reading: parsed.reading ?? [],
     }
   } catch {
     return EMPTY
@@ -67,6 +70,13 @@ export function useStore() {
     setData((d) => ({
       ...d,
       ticked: d.ticked.includes(id) ? d.ticked.filter((x) => x !== id) : [...d.ticked, id],
+    }))
+  }, [])
+
+  const toggleRead = useCallback((id: string) => {
+    setData((d) => ({
+      ...d,
+      reading: d.reading.includes(id) ? d.reading.filter((x) => x !== id) : [...d.reading, id],
     }))
   }, [])
 
@@ -98,10 +108,36 @@ export function useStore() {
     }
   }, [])
 
-  return { data, toggleTick, completeStep, scoreGym, recordAttempt, recordMath, reset }
+  return { data, toggleTick, toggleRead, completeStep, scoreGym, recordAttempt, recordMath, reset }
 }
 
 export type Store = ReturnType<typeof useStore>
+
+/**
+ * Every progress number the app shows is derived here and nowhere else. The
+ * header stamp, the brief's tally and the nav ticks all read the same object,
+ * so they cannot drift apart.
+ */
+export function stats(d: Persisted) {
+  const attempts = d.attempts
+  const best = new Map<string, number>()
+  for (const a of attempts) {
+    best.set(a.testId, Math.max(best.get(a.testId) ?? 0, a.scored))
+  }
+  return {
+    lesson: d.lesson.length,
+    ticked: d.ticked.length,
+    gym: Object.keys(d.gym).length,
+    sittings: attempts.length,
+    /** best auto-scored result per test id */
+    bestByTest: best,
+    last: attempts.at(-1),
+    math: d.math,
+    mathTotal: d.math.right + d.math.wrong,
+  }
+}
+
+export type Stats = ReturnType<typeof stats>
 
 /** Deterministic shuffle so a reload does not silently regrade a test in progress. */
 export function seededShuffle<T>(arr: T[], seed: number): T[] {
@@ -110,6 +146,16 @@ export function seededShuffle<T>(arr: T[], seed: number): T[] {
   for (let i = out.length - 1; i > 0; i--) {
     s = (s * 1103515245 + 12345) & 0x7fffffff
     const j = s % (i + 1)
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+/** Unseeded shuffle, for a card deck the learner expects to differ each time. */
+export function shuffle<T>(arr: T[]): T[] {
+  const out = arr.slice()
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
     ;[out[i], out[j]] = [out[j], out[i]]
   }
   return out
