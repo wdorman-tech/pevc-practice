@@ -1,128 +1,123 @@
-import { useCallback, useMemo, useState } from 'react'
-import { Button, Chip } from '../components/bits'
-import { CONCEPTS, MODULES, type Concept, type ModuleId } from '../content/concepts'
+import { useCallback, useState } from 'react'
+import { Btn, Chip, ChipRow } from '../components/ui'
+import { CONCEPTS, MODULES, modName, type ModuleId } from '../content/concepts'
+import { shuffle } from '../lib/store'
 
 /**
  * Recall practice, not reading practice. You see the term, you say the definition
  * out loud, and only then do you turn it over. Reading the back first feels like
  * learning and is not.
+ *
+ * The deck order is fixed when you change module, toggle the filter or shuffle —
+ * never when you mark a card, so flagging the card in front of you does not pull
+ * the ground out from under the run you are in.
  */
 export function Cards() {
   const [mod, setMod] = useState<ModuleId | 'all'>('all')
-  const [i, setI] = useState(0)
+  const [flagOnly, setFlagOnly] = useState(false)
+  const [flagged, setFlagged] = useState<string[]>([])
+  const [order, setOrder] = useState<string[]>(() => shuffle(CONCEPTS).map((c) => c.id))
+  const [idx, setIdx] = useState(0)
   const [flipped, setFlipped] = useState(false)
-  const [missed, setMissed] = useState<string[]>([])
-  const [seen, setSeen] = useState(0)
 
-  const deck = useMemo(() => {
-    const pool = CONCEPTS.filter((c) => mod === 'all' || c.m === mod)
-    return shuffle(pool)
-  }, [mod])
-
-  const card: Concept | undefined = deck[i]
-
-  const next = useCallback(
-    (knew: boolean) => {
-      if (!card) return
-      if (!knew) setMissed((m) => (m.includes(card.id) ? m : [...m, card.id]))
-      setSeen((s) => s + 1)
+  const rebuild = useCallback(
+    (nextMod: ModuleId | 'all', nextFlag: boolean, flags: string[]) => {
+      const pool = CONCEPTS.filter(
+        (c) => (nextMod === 'all' || c.m === nextMod) && (!nextFlag || flags.includes(c.id)),
+      )
+      setOrder(shuffle(pool).map((c) => c.id))
+      setIdx(0)
       setFlipped(false)
-      setI((n) => (n + 1) % deck.length)
     },
-    [card, deck.length],
+    [],
   )
 
-  const restartMissed = () => {
-    setMissed([])
-    setSeen(0)
-    setI(0)
+  const pickMod = (v: ModuleId | 'all') => {
+    setMod(v)
+    rebuild(v, flagOnly, flagged)
+  }
+
+  const toggleFlagOnly = () => {
+    const next = !flagOnly
+    setFlagOnly(next)
+    rebuild(mod, next, flagged)
+  }
+
+  /** Both answers move you on; the only difference is whether the card comes back. */
+  const mark = (review: boolean) => {
+    const id = order[idx]
+    setFlagged((f) => (review ? (f.includes(id) ? f : [...f, id]) : f.filter((x) => x !== id)))
+    setIdx((n) => (n + 1 < order.length ? n + 1 : 0))
     setFlipped(false)
   }
 
+  const card = order.length ? CONCEPTS.find((c) => c.id === order[idx]) : undefined
+
   return (
-    <div className="mx-auto max-w-2xl px-6 py-10">
-      <div className="label">03 — cards</div>
-      <h1 className="font-display mt-1 text-4xl leading-[1.05] tracking-tight">
-        Say it before you turn it over.
-      </h1>
-      <p className="text-bone-300 mt-4 text-[17px] leading-[1.65]">
-        Trying to recall the definition and failing does more for you than reading it again. Answer out
-        loud, then flip, then be honest about whether you had it.
+    <>
+      <div className="mono eyebrow">04 — cards</div>
+      <h1 className="serif h1">Say it out loud before you flip it.</h1>
+      <p className="lede">
+        Recognising a definition is not the same as producing one under pressure. Answer aloud, in a
+        full sentence, then check yourself.
       </p>
 
-      <div className="mt-7 flex flex-wrap gap-2">
-        <Chip
-          active={mod === 'all'}
-          onClick={() => {
-            setMod('all')
-            restartMissed()
-          }}
-        >
-          all
-        </Chip>
-        {MODULES.map((m) => (
-          <Chip
-            key={m.id}
-            active={mod === m.id}
-            onClick={() => {
-              setMod(m.id)
-              restartMissed()
-            }}
-          >
-            {m.code}
+      <div className="toolbar">
+        <ChipRow
+          options={MODULES.map((m) => ({ id: m.id, label: m.name, code: m.code }))}
+          value={mod}
+          onPick={pickMod}
+        />
+        <div className="tools">
+          <Chip on={flagOnly} onClick={toggleFlagOnly}>
+            Flagged only
           </Chip>
-        ))}
-        <span className="text-bone-500 ml-auto font-mono text-[11px] leading-7">
-          {seen} seen · {missed.length} to revisit
-        </span>
+          <Btn tone="quiet" onClick={() => rebuild(mod, flagOnly, flagged)}>
+            Shuffle
+          </Btn>
+        </div>
       </div>
 
-      {card && (
-        <div className="panel mt-5 min-h-[300px] p-7">
-          <div className="label">{MODULES.find((m) => m.id === card.m)?.name}</div>
-          <div className="font-display mt-3 text-[32px] leading-[1.15] tracking-tight">
-            {card.term}
-          </div>
-
-          {!flipped ? (
-            <div className="mt-8">
-              <p className="text-bone-500 text-[15px] leading-[1.6]">
-                Say the definition out loud, then the one thing about it most people cannot say.
-              </p>
-              <div className="mt-6">
-                <Button variant="solid" onClick={() => setFlipped(true)}>
-                  Turn over
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="rise mt-6">
-              <p className="text-bone-100 text-[16px] leading-[1.7]">{card.def}</p>
-              <p className="text-bone-300 border-ember-500/35 mt-4 border-l-2 pl-3.5 text-[15px] leading-[1.7]">
-                <span className="text-ember-700 mr-1.5 font-mono text-[10px] tracking-[0.14em] uppercase">
-                  edge
-                </span>
-                {card.edge}
-              </p>
-              <div className="mt-7 flex gap-3">
-                <Button onClick={() => next(false)}>Did not have it</Button>
-                <Button variant="solid" onClick={() => next(true)}>
-                  Had it
-                </Button>
-              </div>
-            </div>
-          )}
+      {!card ? (
+        <div className="empty">
+          {flagOnly
+            ? 'Nothing flagged for review in this module yet. Work a few cards first.'
+            : 'No cards in this module.'}
         </div>
+      ) : (
+        <>
+          <div className="counter mono">
+            {idx + 1} / {order.length}
+          </div>
+          <div className={flipped ? 'flash open' : 'flash'}>
+            {/* The source wraps the front in a plain block box; index.css has no rule
+                for it, so an unclassed div keeps the Flip button from stretching as
+                a flex child of .flash. */}
+            <div>
+              <div className="mono flash-mod">{modName(card.m)}</div>
+              <div className="serif flash-term">{card.term}</div>
+              {!flipped && <Btn onClick={() => setFlipped(true)}>Flip</Btn>}
+            </div>
+            {flipped && (
+              <div className="flash-back">
+                <div className="con-def">{card.def}</div>
+                <div className="con-edge">
+                  <span className="mono edge-tag">edge</span>
+                  {card.edge}
+                </div>
+                <div className="flash-actions">
+                  <Btn tone="red" onClick={() => mark(false)}>
+                    I said that
+                  </Btn>
+                  <Btn tone="quiet" onClick={() => mark(true)}>
+                    Flag for review
+                  </Btn>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
       )}
-    </div>
+    </>
   )
-}
-
-function shuffle<T>(arr: T[]): T[] {
-  const out = arr.slice()
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[out[i], out[j]] = [out[j], out[i]]
-  }
-  return out
 }

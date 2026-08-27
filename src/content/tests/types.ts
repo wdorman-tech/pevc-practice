@@ -140,3 +140,13 @@ export type PracticeTest = {
 export function isAuto(item: Item): item is McItem | NumItem {
   return item.kind !== 'open'
 }
+
+/** How many of a form's items are machine-scored. Derived, never written down. */
+export function scoredCount(test: PracticeTest): number {
+  return test.items.filter(isAuto).length
+}
+
+/** Criteria available across a form's open items, for the self-scored tally. */
+export function criteriaCount(test: PracticeTest): number {
+  return test.items.reduce((n, x) => n + (x.kind === 'open' ? x.criteria.length : 0), 0)
+}

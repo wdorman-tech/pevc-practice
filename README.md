@@ -5,7 +5,7 @@ degree. Two pieces of teaching and five practice tests over the same material.
 
 ```bash
 npm install
-npm run dev       # http://localhost:5173
+npm run dev       # http://localhost:5273
 npm run build     # tsc -b && vite build
 npm run lint
 npm run validate  # checks all 100 test items against the item-writing contract
@@ -18,15 +18,14 @@ the built app without a terminal.
 
 | Section | What it does |
 |---|---|
-| **Brief** | What these interviews actually measure, and the four beats to run on every question. |
+| **Brief** | What these interviews actually measure, the four beats to run on every question, the mentor's summer list, and the tally of work done. |
 | **The Big Three** | A four-step lesson on the income statement, balance sheet and cash flow statement, built on one coffee cart and six events. Every number in all four steps comes from those six events. |
 | **Concepts** | 72 terms across six modules. Each carries the definition and the one line about it a first-year usually cannot say. |
 | **Cards** | The same 72 as recall practice. Term first, definition out loud, then flip. |
 | **Gym** | 23 open questions with no formula behind them. Structure before answer, because the structure is what is graded. |
-| **Math** | Two-minute mental-arithmetic sprints on the arithmetic that shows up mid-answer. |
+| **Math** | Sixty-second mental-arithmetic sprints on the arithmetic that shows up mid-answer. |
 | **Mock** | Five drawn questions, a running clock, model answers withheld until you commit. |
 | **Tests** | Five practice tests. See below. |
-| **Progress** | Local-only record of ticks, scores and sittings. |
 
 ## The five tests are parallel forms, not five difficulties
 
@@ -69,10 +68,39 @@ The item and feedback design follows the assessment literature rather than conve
 - **Explanations are capped** at roughly four sentences. Mayer's coherence principle held in 23 of 23
   experiments: interesting-but-irrelevant content actively harms transfer.
 
+## The look
+
+The app is the two source sheets, not a theme applied to them. Paper ground, a white sheet
+with hairline edges, a double rule under the masthead, a rotated blue stamp, a numbered left
+rail with a red pencil line down it. Square corners, 1px rules, no shadows, no rounded corners,
+no webfonts — system serif for headings, system sans for body, system mono for labels.
+
+`src/index.css` is the whole stylesheet, ported from the two sheets. Eight colours live in
+CSS variables and nothing hard-codes a hex. There is no Tailwind and no utility classes: views
+use semantic class names (`.ldgr`, `.qa`, `.prin`, `.flash`, `.q-card`) and the build fails the
+eye immediately if one is invented, because an undefined class renders as nothing.
+
+## One home per thing
+
+The rule for this codebase is that no piece of data or markup has two homes.
+
+- **Every repeated block is a primitive** in `src/components/ui.tsx` — the tick, the tick box,
+  buttons, chips, the disclosure, the commit-before-you-look gate, the model-answer panel, the
+  binary checklist, the question head. The gym, the mock and a test's written questions draw the
+  same gate and the same checklist because they call the same function.
+- **Every progress number comes from `stats()`** in `src/lib/store.ts`. The header stamp and the
+  brief's tally cannot disagree, because there is only one place that counts.
+- **Counts are derived, never written down.** `scoredCount(test)` and `criteriaCount(test)` come
+  from the items themselves, so a blueprint change cannot leave a label lying.
+- There is no separate progress page. The tally sits on the brief, where the source sheet put it.
+
 ## Layout
 
 ```
 src/
+  index.css          the entire stylesheet
+  App.tsx            the sheet, the masthead stamp, the rail
+  components/ui.tsx  every shared primitive
   content/
     lesson.ts        The Big Three, as data
     concepts.ts      72 terms, six modules
@@ -80,14 +108,14 @@ src/
     brief.ts         principles, the four beats, the summer list
     mathgen.ts       mental-math generators
     tests/
-      types.ts       item types + the 20-shell blueprint
+      types.ts       item types, the 20-shell blueprint, derived counts
       test1..5.ts    the five parallel forms
-  views/             one file per section
-  lib/store.ts       localStorage progress
-  components/bits.tsx
+  views/             one file per rail entry
+  lib/store.ts       localStorage progress + stats()
 ```
 
-Progress lives in `localStorage` under `ticksheet:v2` and nowhere else. No accounts, no backend.
+Progress lives in `localStorage` under `ticksheet:v2` and nowhere else. No accounts, no backend,
+no dependencies beyond React.
 
 ## The validator
 

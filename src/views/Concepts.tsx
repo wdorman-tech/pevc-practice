@@ -1,11 +1,27 @@
-import { useMemo, useState } from 'react'
-import { Chip } from '../components/bits'
-import { CONCEPTS, MODULES, type ModuleId } from '../content/concepts'
+import { useEffect, useMemo, useState } from 'react'
+import { ChipRow, Search, TickBox } from '../components/ui'
+import { CONCEPTS, MODULES, modCode, type ModuleId } from '../content/concepts'
 import type { Store } from '../lib/store'
 
+/**
+ * The glossary. Every entry carries a definition and an edge, because the
+ * definition is what levels you with the other candidates and the edge is the
+ * only half anyone remembers.
+ */
 export function Concepts({ store, initialModule }: { store: Store; initialModule?: ModuleId }) {
   const [mod, setMod] = useState<ModuleId | 'all'>(initialModule ?? 'all')
   const [q, setQ] = useState('')
+
+  // The brief links straight to a module, and this view stays mounted, so a
+  // fresh initialModule has to move the chip row.
+  useEffect(() => {
+    if (initialModule) setMod(initialModule)
+  }, [initialModule])
+
+  const options = useMemo(
+    () => MODULES.map((m) => ({ id: m.id, label: m.name, code: m.code })),
+    [],
+  )
 
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -16,86 +32,45 @@ export function Concepts({ store, initialModule }: { store: Store; initialModule
     )
   }, [mod, q])
 
-  const code = (m: ModuleId) => MODULES.find((x) => x.id === m)?.code ?? ''
-
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
-      <div className="label">02 — concepts</div>
-      <h1 className="font-display mt-1 text-4xl leading-[1.05] tracking-tight">
-        The definition gets you level. The edge gets you remembered.
-      </h1>
-      <p className="text-bone-300 mt-4 text-[17px] leading-[1.65]">
+    <>
+      <div className="mono eyebrow">03 — concepts</div>
+      <h1 className="serif h1">The definition gets you level. The edge gets you remembered.</h1>
+      <p className="lede">
         Every entry has two lines. The first is what the term means. The second is the thing a
         first-year usually cannot say, which is the line that actually earns you the second round.
       </p>
 
-      <div className="mt-7 flex flex-wrap items-center gap-2">
-        <Chip active={mod === 'all'} onClick={() => setMod('all')}>
-          all {CONCEPTS.length}
-        </Chip>
-        {MODULES.map((m) => (
-          <Chip key={m.id} active={mod === m.id} onClick={() => setMod(m.id)}>
-            {m.name}
-          </Chip>
-        ))}
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="search terms"
-          aria-label="Search concepts"
-          className="border-line focus:border-ember-500/60 bg-ash-900 text-bone-100 ml-auto w-44 rounded-full border px-4 py-1.5 font-mono text-[11px] outline-none"
-        />
+      <div className="toolbar">
+        <ChipRow options={options} value={mod} onPick={setMod} />
+        <Search value={q} onChange={setQ} placeholder="search terms" />
       </div>
 
-      <div className="panel mt-5 overflow-hidden">
-        {list.length === 0 && (
-          <div className="text-bone-500 px-5 py-10 text-center text-[14px]">
-            Nothing matches that. Clear the search or pick another module.
-          </div>
-        )}
-        {list.map((c) => {
-          const on = store.data.ticked.includes(c.id)
-          return (
-            <div
-              key={c.id}
-              className="border-line grid grid-cols-[28px_1fr] gap-3.5 border-b px-5 py-4 last:border-0"
-            >
-              <button
-                type="button"
-                onClick={() => store.toggleTick(c.id)}
-                aria-pressed={on}
-                aria-label={`Tick ${c.term}`}
-                className={`mt-1 grid h-5 w-5 cursor-pointer place-items-center rounded border font-mono text-[11px] transition-colors ${
-                  on
-                    ? 'border-moss-400 bg-moss-400 text-white'
-                    : 'border-line-strong text-transparent hover:border-ember-500/60'
-                }`}
-              >
-                ✓
-              </button>
-              <div className="min-w-0">
-                <div className="flex items-baseline gap-2.5">
-                  <span
-                    className={`text-[16px] font-semibold ${on ? 'text-bone-500 line-through' : 'text-bone-100'}`}
-                  >
-                    {c.term}
-                  </span>
-                  <span className="text-bone-500 font-mono text-[10px] tracking-[0.14em]">
-                    {code(c.m)}
-                  </span>
+      {list.length === 0 ? (
+        <div className="empty">Nothing matches that. Clear the search or pick another module.</div>
+      ) : (
+        <div className="rows bordered">
+          {list.map((c, i) => {
+            const on = store.data.ticked.includes(c.id)
+            return (
+              <div key={c.id} className={i % 2 ? 'con band' : 'con'}>
+                <TickBox on={on} onClick={() => store.toggleTick(c.id)} label={`Tick ${c.term}`} />
+                <div className="con-body">
+                  <div className="con-head">
+                    <span className={on ? 'con-term done' : 'con-term'}>{c.term}</span>
+                    <span className="mono con-mod">{modCode(c.m)}</span>
+                  </div>
+                  <div className="con-def">{c.def}</div>
+                  <div className="con-edge">
+                    <span className="mono edge-tag">edge</span>
+                    {c.edge}
+                  </div>
                 </div>
-                <p className="text-bone-300 mt-1.5 text-[14.5px] leading-[1.65]">{c.def}</p>
-                <p className="text-bone-300 border-ember-500/35 mt-2.5 border-l-2 pl-3 text-[14.5px] leading-[1.65]">
-                  <span className="text-ember-700 mr-1.5 font-mono text-[10px] tracking-[0.14em] uppercase">
-                    edge
-                  </span>
-                  {c.edge}
-                </p>
               </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
+            )
+          })}
+        </div>
+      )}
+    </>
   )
 }
