@@ -211,17 +211,17 @@ export const TEST_5: PracticeTest = {
     {
       shell: 'S13',
       kind: 'num',
-      stem: 'A toll road raises its toll 21% a year and inflation runs 3% a year. Using the rule of 72, roughly how long until the toll doubles in real terms?',
-      answer: 4,
+      stem: 'A toll road raises its toll 6% a year and inflation runs 2% a year. Using the rule of 72, roughly how long until the toll doubles in real terms?',
+      answer: 18,
       tol: 0.5,
       unit: ' years',
       format: 'Answer as a number, e.g. 9',
       work: [
-        { label: 'Toll increase each year', value: '+21%' },
-        { label: 'Inflation each year', value: '(3%)', running: 'real growth 18%' },
-        { label: 'Rule of 72: 72 divided by 18', value: '4 years', running: 'doubles in about 4 years' },
+        { label: 'Toll increase each year', value: '+6%' },
+        { label: 'Inflation each year', value: '(2%)', running: 'real growth 4%' },
+        { label: 'Rule of 72: 72 divided by 4', value: '18 years', running: 'doubles in about 18 years' },
       ],
-      why: 'A price rise only makes you richer to the extent it beats inflation. The toll doubles in a little over three years in cash terms and in about four in what that cash can buy.',
+      why: 'A price rise only makes you richer to the extent it beats inflation. The toll doubles in about twelve years in cash terms and in about eighteen in what that cash can buy.',
       rule: 'A growth rate quoted in dollars is not a growth rate in things; subtract inflation before you use it for anything.',
     },
     {
