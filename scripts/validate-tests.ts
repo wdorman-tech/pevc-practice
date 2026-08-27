@@ -115,6 +115,16 @@ for (const test of TESTS) {
           warns,
         )
       }
+      // The ledger has to arrive at the answer. Items are edited in place — a step
+      // gets inserted and the subtotals below it are left stale — and this is where
+      // that shows up.
+      const ledger = item.work.map((w) => `${w.value} ${w.running ?? ''}`).join(' ')
+      const shown = [...ledger.matchAll(/[\d][\d,.]*/g)].map((m) => Number(m[0].replace(/,/g, '')))
+      check(
+        shown.some((n) => Math.abs(n - item.answer) <= (item.tol ?? 0)),
+        at(item.shell, 'ledger-reaches-answer', `no step lands on ${item.answer}`),
+      )
+
       check(words(item.why) <= 60, at(item.shell, 'why-length', `${words(item.why)} words`))
       check(sentences(item.why) <= 4, at(item.shell, 'why-sentences', `${sentences(item.why)} sentences`))
       check(words(item.stem) <= 60, at(item.shell, 'stem-length', `${words(item.stem)} words`), warns)
