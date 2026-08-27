@@ -554,11 +554,13 @@ function Report({
       </h1>
 
       <p className="text-bone-300 mt-5 text-[16px] leading-[1.7]">
-        {pct >= 80
-          ? 'The scored half is solid. The reasoning questions are where the interview is actually decided, so read the criteria you missed rather than the ones you hit.'
-          : pct >= 55
-            ? 'A normal first pass. The gap is almost never the definitions — go back to the items you missed and read the trap line, not the answer.'
-            : 'Low, and that is information rather than a verdict. Work through The Big Three again before the next form; most misses at this level trace back to profit-versus-cash.'}
+        {results.length === 0
+          ? 'You left before the scored questions, so there is nothing to read here. The written questions are the ones that decide an interview, but the first sixteen are what tell you whether the basics are in place.'
+          : pct >= 80
+            ? 'The scored half is solid. The reasoning questions are where the interview is actually decided, so read the criteria you missed rather than the ones you hit.'
+            : pct >= 55
+              ? 'A normal first pass. The gap is almost never the definitions — go back to the items you missed and read the trap line, not the answer.'
+              : 'Low, and that is information rather than a verdict. Work through The Big Three again before the next form; most misses at this level trace back to profit-versus-cash.'}
       </p>
 
       {blindSpots.length > 0 && (
