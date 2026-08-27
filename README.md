@@ -1,12 +1,7 @@
 # The Tick Sheet
 
-**Live: https://wdorman-tech.github.io/pevc-practice/**
-
 Interview prep for Wharton finance-club first rounds, aimed at freshmen about a month into the
 degree. Two pieces of teaching and five practice tests over the same material.
-
-Every push to `main` runs lint, the content validator and the build, then publishes. A broken test
-item fails CI rather than reaching the site.
 
 ```bash
 npm install
