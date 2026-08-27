@@ -1,0 +1,225 @@
+/**
+ * Mechanical checks on the five practice tests.
+ *
+ * Everything here is a rule a machine can settle: shell coverage, option counts,
+ * trap alignment, word caps, sign conventions. Judgment calls (is this distractor
+ * a real misconception? is the model answer any good?) are not in here.
+ *
+ * Run with: npx tsx scripts/validate-tests.ts
+ */
+import { TESTS } from '../src/content/tests'
+import { SHELLS, type Item, type PracticeTest } from '../src/content/tests/types'
+
+type Fail = { test: string; shell: string; rule: string; detail: string }
+
+const fails: Fail[] = []
+const warns: Fail[] = []
+
+const words = (s: string) => s.trim().split(/\s+/).length
+const sentences = (s: string) => s.split(/[.!?]+(?:\s|$)/).filter((x) => x.trim().length > 0).length
+
+function check(cond: boolean, f: Fail, list: Fail[] = fails) {
+  if (!cond) list.push(f)
+}
+
+for (const test of TESTS) {
+  const at = (shell: string, rule: string, detail: string): Fail => ({
+    test: `T${test.n}`,
+    shell,
+    rule,
+    detail,
+  })
+
+  // ---- form-level ----
+  check(test.items.length === SHELLS.length, at('—', 'item-count', `${test.items.length} items, expected ${SHELLS.length}`))
+  check(words(test.blurb) < 25, at('—', 'blurb-length', `${words(test.blurb)} words`))
+  check(words(test.title) <= 4, at('—', 'title-length', `"${test.title}"`))
+
+  const codes = test.items.map((i) => i.shell)
+  SHELLS.forEach((s, n) => {
+    check(codes[n] === s.code, at(s.code, 'shell-order', `slot ${n} holds ${codes[n] ?? 'nothing'}`))
+  })
+
+  const kindForShell: Record<string, Item['kind']> = {}
+  for (const item of test.items) {
+    kindForShell[item.shell] = item.kind
+
+    // ---- every item ----
+    check(item.rule.length > 0, at(item.shell, 'rule-present', 'empty rule'))
+    check(words(item.rule) <= 26, at(item.shell, 'rule-length', `${words(item.rule)} words`))
+    check(sentences(item.rule) === 1, at(item.shell, 'rule-one-sentence', `${sentences(item.rule)} sentences`), warns)
+
+    if (item.kind === 'mc') {
+      check(item.choices.length === 3, at(item.shell, 'three-options', `${item.choices.length} options`))
+      check(
+        item.answer >= 0 && item.answer < item.choices.length,
+        at(item.shell, 'answer-in-range', `answer=${item.answer}`),
+      )
+      check(words(item.stem) <= 45, at(item.shell, 'stem-length', `${words(item.stem)} words`))
+      check(
+        !/\b(NOT|EXCEPT|LEAST)\b/.test(item.stem),
+        at(item.shell, 'positive-stem', 'stem contains NOT / EXCEPT / LEAST'),
+      )
+
+      // traps must cover exactly the distractors
+      const distractors = item.choices.map((_, n) => n).filter((n) => n !== item.answer)
+      const trapKeys = Object.keys(item.traps).map(Number).sort()
+      check(
+        JSON.stringify(trapKeys) === JSON.stringify(distractors.sort()),
+        at(item.shell, 'trap-alignment', `traps for [${trapKeys}], distractors are [${distractors}]`),
+      )
+      for (const k of distractors) {
+        check(!!item.traps[k]?.trim(), at(item.shell, 'trap-present', `no trap for option ${k}`))
+      }
+
+      // option hygiene
+      const lens = item.choices.map(words)
+      const lo = Math.min(...lens)
+      const hi = Math.max(...lens)
+      check(hi <= 12, at(item.shell, 'option-length', `longest option is ${hi} words`), warns)
+      check(
+        hi <= lo * 1.25 + 1,
+        at(item.shell, 'option-balance', `word counts ${lens.join('/')} — key is index ${item.answer}`),
+        warns,
+      )
+      check(
+        lens[item.answer] !== hi || lens.filter((l) => l === hi).length > 1,
+        at(item.shell, 'key-not-longest', `key is the longest option (${lens.join('/')})`),
+      )
+      for (const c of item.choices) {
+        check(
+          !/\b(always|never|only|completely)\b/i.test(c),
+          at(item.shell, 'no-absolutes', `"${c}"`),
+          warns,
+        )
+        check(
+          !/^(all|none) of the above/i.test(c.trim()),
+          at(item.shell, 'no-all-of-the-above', `"${c}"`),
+        )
+      }
+      const dupes = new Set(item.choices.map((c) => c.toLowerCase().trim()))
+      check(dupes.size === item.choices.length, at(item.shell, 'distinct-options', 'duplicate option text'))
+
+      check(words(item.why) <= 60, at(item.shell, 'why-length', `${words(item.why)} words`))
+      check(sentences(item.why) <= 4, at(item.shell, 'why-sentences', `${sentences(item.why)} sentences`))
+    }
+
+    if (item.kind === 'num') {
+      check(Number.isFinite(item.answer), at(item.shell, 'answer-numeric', `${item.answer}`))
+      check(item.work.length >= 3 && item.work.length <= 6, at(item.shell, 'work-steps', `${item.work.length} steps`))
+      for (const w of item.work) {
+        check(!!w.label.trim(), at(item.shell, 'work-label', 'empty label'))
+        check(
+          /[+(-]|^\$?[\d,]/.test(w.value.trim()) || /[a-z]/i.test(w.value),
+          at(item.shell, 'work-sign', `"${w.value}" has no explicit sign`),
+          warns,
+        )
+      }
+      check(words(item.why) <= 60, at(item.shell, 'why-length', `${words(item.why)} words`))
+      check(sentences(item.why) <= 4, at(item.shell, 'why-sentences', `${sentences(item.why)} sentences`))
+      check(words(item.stem) <= 60, at(item.shell, 'stem-length', `${words(item.stem)} words`), warns)
+    }
+
+    if (item.kind === 'open') {
+      check(item.criteria.length === 4, at(item.shell, 'four-criteria', `${item.criteria.length} criteria`))
+      check(
+        item.clarify.length >= 2,
+        at(item.shell, 'clarify-count', `${item.clarify.length} clarifying questions`),
+      )
+      check(
+        item.skeleton.length >= 4 && item.skeleton.length <= 6,
+        at(item.shell, 'skeleton-length', `${item.skeleton.length} lines`),
+      )
+      const mw = words(item.model)
+      check(mw >= 110 && mw <= 200, at(item.shell, 'model-length', `${mw} words`))
+      check(item.follows.length >= 2, at(item.shell, 'follows-count', `${item.follows.length}`))
+      check(item.flags.length >= 1, at(item.shell, 'flags-count', `${item.flags.length}`))
+      for (const c of item.criteria) {
+        check(
+          !/\b(good|strong|clear|well|effective|solid)\b/i.test(c),
+          at(item.shell, 'criteria-not-judgment', `"${c}" reads as a rating, not a content point`),
+          warns,
+        )
+      }
+    }
+  }
+
+  // ---- kinds must match the blueprint ----
+  for (const s of SHELLS) {
+    const want =
+      s.part === 'reason' ? 'open' : ['S09', 'S10', 'S11', 'S12', 'S13'].includes(s.code) ? 'num' : 'mc'
+    check(
+      kindForShell[s.code] === want,
+      at(s.code, 'kind-matches-blueprint', `is ${kindForShell[s.code]}, blueprint says ${want}`),
+    )
+  }
+}
+
+// ---- cross-form parallelism ----
+for (const s of SHELLS) {
+  const siblings = TESTS.map((t) => ({ t, item: t.items.find((i) => i.shell === s.code) }))
+  const kinds = new Set(siblings.map((x) => x.item?.kind))
+  if (kinds.size > 1) {
+    fails.push({ test: 'ALL', shell: s.code, rule: 'sibling-kind', detail: `kinds differ: ${[...kinds].join(', ')}` })
+  }
+  const numSteps = siblings
+    .map((x) => (x.item?.kind === 'num' ? x.item.work.length : null))
+    .filter((n): n is number => n !== null)
+  if (numSteps.length && Math.max(...numSteps) - Math.min(...numSteps) > 2) {
+    warns.push({
+      test: 'ALL',
+      shell: s.code,
+      rule: 'sibling-step-count',
+      detail: `worked steps range ${Math.min(...numSteps)}–${Math.max(...numSteps)}; a wide gap breaks parallelism`,
+    })
+  }
+}
+
+// ---- key position balance across a form ----
+for (const test of TESTS) {
+  const mc = test.items.filter((i): i is Extract<Item, { kind: 'mc' }> => i.kind === 'mc')
+  const counts = [0, 0, 0]
+  for (const m of mc) counts[m.answer]++
+  const worst = Math.max(...counts) / mc.length
+  if (worst > 0.6) {
+    warns.push({
+      test: `T${test.n}`,
+      shell: '—',
+      rule: 'key-position-balance',
+      detail: `authored key sits at one index ${Math.round(worst * 100)}% of the time (runtime shuffles, so cosmetic)`,
+    })
+  }
+}
+
+// ---- duplicate stems across forms ----
+const stems = new Map<string, string[]>()
+for (const test of TESTS) {
+  for (const item of test.items) {
+    const norm = item.stem.toLowerCase().replace(/[^a-z ]/g, '').slice(0, 70)
+    stems.set(norm, [...(stems.get(norm) ?? []), `T${test.n}/${item.shell}`])
+  }
+}
+for (const [, where] of stems) {
+  if (where.length > 1) {
+    fails.push({ test: 'ALL', shell: where.join(' '), rule: 'duplicate-stem', detail: 'same stem in two forms' })
+  }
+}
+
+// ---- report ----
+const show = (list: Fail[], head: string) => {
+  if (!list.length) return
+  console.log(`\n${head} (${list.length})`)
+  for (const f of list) console.log(`  ${f.test.padEnd(4)} ${f.shell.padEnd(4)} ${f.rule.padEnd(24)} ${f.detail}`)
+}
+
+const counts = TESTS.map((t: PracticeTest) => `T${t.n}: ${t.items.length}`).join('  ')
+console.log(`Forms: ${TESTS.length}   Items — ${counts}`)
+show(warns, 'WARN')
+show(fails, 'FAIL')
+
+if (fails.length === 0) {
+  console.log(`\nAll hard checks pass across ${TESTS.reduce((n, t) => n + t.items.length, 0)} items.`)
+} else {
+  console.log(`\n${fails.length} hard failures.`)
+  process.exitCode = 1
+}
