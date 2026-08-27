@@ -49,19 +49,19 @@ export const TEST_3: PracticeTest = {
     {
       shell: 'S03',
       kind: 'mc',
-      stem: 'A design-tool startup holds its prices unchanged and triples its marketing spend. Which margin falls first?',
+      stem: 'Two streaming services run identical operations, but one carries a large loan and the other carries none. Which margin tells you what shareholders keep from each dollar of revenue?',
       choices: [
-        'Gross margin, measured before any running costs',
-        'Operating margin, measured after the running costs',
+        'Gross margin, measured before running costs',
+        'Operating margin, measured before interest and tax',
         'Net margin, measured after interest and tax',
       ],
-      answer: 1,
-      why: 'Marketing is a cost of running the company, not a cost of delivering the product, so it lands below gross profit. Gross margin is untouched, which is exactly why you read gross margin to judge the product and operating margin to judge the business.',
+      answer: 2,
+      why: 'The two are identical until the interest bill, so only a margin taken below that line can separate them. Net margin has already paid the lenders and the tax collector, which is what makes it the share that reaches the owners.',
       traps: {
-        0: 'You picked this if you are filing sales and marketing salaries into the direct cost of delivering the product.',
-        2: 'You picked this if you jumped to the bottom line; net margin falls too, but only because operating margin fell first.',
+        0: 'You picked this if you read gross margin as what owners keep; it stops before overhead, interest and tax.',
+        1: 'You picked this if you stop at operating margin; it is measured before interest, so the loan never shows up.',
       },
-      rule: 'Read gross margin to judge the product, operating margin to judge the business, net margin to judge the financing.',
+      rule: 'When the question is what owners keep, read the margin that has already paid the lenders and the tax bill.',
     },
 
     /* ---- S04 · recall · business analysis ---- */
@@ -180,30 +180,31 @@ export const TEST_3: PracticeTest = {
     {
       shell: 'S10',
       kind: 'num',
-      stem: 'A payroll software company reports $60M of net income. Depreciation is $15M, receivables rise $30M and payables rise $10M. What is cash from operations, in $M?',
-      answer: 55,
+      stem: 'A payroll software company reports $60M of net income. Depreciation is $15M, receivables rise $30M, prepaid hosting costs rise $5M, and payables rise $10M. What is cash from operations, in $M?',
+      answer: 50,
       unit: '$M',
       format: 'Answer as a number, e.g. 40',
       work: [
         { label: 'Net income', value: '+$60M', running: '$60M' },
         { label: 'Add back depreciation, non-cash', value: '+$15M', running: '$75M' },
         { label: 'Receivables rise, billed but not collected', value: '($30M)', running: '$45M' },
-        { label: 'Payables rise, incurred but not yet paid', value: '+$10M', running: '$55M' },
+        { label: 'Prepaid costs rise, paid ahead of use', value: '($5M)', running: '$40M' },
+        { label: 'Payables rise, incurred but not yet paid', value: '+$10M', running: '$50M' },
       ],
       why: 'Profit counts what you earned and used up; cash counts what actually moved through the bank. Working capital is the whole gap between the two.',
-      rule: 'A rise in receivables is cash out; a rise in payables is cash still sitting in your account.',
+      rule: 'You lose cash when receivables or prepayments grow, and you keep it when payables grow.',
     },
 
     /* ---- S11 · apply · valuation ---- */
     {
       shell: 'S11',
       kind: 'num',
-      stem: 'A ticketing marketplace has a market cap of $700M, debt of $250M and cash of $50M. EBITDA is $100M. What is its EV/EBITDA multiple?',
+      stem: 'A ticketing marketplace has 50M shares trading at $14, debt of $250M and cash of $50M. EBITDA is $100M. What is its EV/EBITDA multiple?',
       answer: 9,
       unit: 'x',
       format: 'Answer as a number, e.g. 12',
       work: [
-        { label: 'Equity value, the market cap', value: '+$700M', running: '$700M' },
+        { label: 'Equity value: 50M shares at $14', value: '+$700M', running: '$700M' },
         { label: 'Add debt, a claim on the same business', value: '+$250M', running: '$950M' },
         { label: 'Subtract cash, it comes with the deal', value: '($50M)', running: 'EV $900M' },
         { label: 'Divide by EBITDA', value: '÷ $100M', running: '9.0x' },

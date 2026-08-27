@@ -10,19 +10,19 @@ export const TEST_5: PracticeTest = {
     {
       shell: 'S01',
       kind: 'mc',
-      stem: "A hotel group tells you its borrowings came down steadily through the year. You want to know exactly what it owed on 31 December. Which statement answers that, and over what window?",
+      stem: 'A hotel group wants to know how much money its operations generated last year and where that money then went. Which statement answers that, and over what window?',
       choices: [
         'The income statement, across the whole year',
         'The balance sheet, on a single day',
         'The cash flow statement, over the year',
       ],
-      answer: 1,
-      why: 'Debt outstanding is a balance, and only the balance sheet reports balances. It is a photograph taken on one date, so take it again tomorrow and the figure can be different.',
+      answer: 2,
+      why: 'Only one statement tracks money in and out, sorted into operating, investing and financing, so it answers both halves of the question at once. Profit is measured on accruals, so it can differ from the bank movement for years at a time.',
       traps: {
-        0: 'You picked this if you follow the phrase "through the year" to the income statement; it reports earning and spending, never what is owed.',
-        2: 'You picked this if you expect the cash flow statement to list balances; it reports movements between two dates instead.',
+        0: 'You picked this if you read profit as money generated; accruals book sales and costs before the bank moves.',
+        1: 'You picked this if you read the closing bank balance as the year of generation; a balance is a level, not a flow.',
       },
-      rule: 'Ask whether you want a balance or a flow, and the statement picks itself.',
+      rule: 'When you want to know how much money came in and where it went, go to the cash flow statement.',
     },
     {
       shell: 'S02',
@@ -129,19 +129,19 @@ export const TEST_5: PracticeTest = {
     {
       shell: 'S08',
       kind: 'mc',
-      stem: 'A data centre landlord sells a call option on shares it already owns and collects the premium. What has it taken on?',
+      stem: "A hotel group's shares trade at $56. A call struck at $50 is priced at $9. How does that $9 split between intrinsic and time value?",
       choices: [
-        'An obligation to sell if the buyer exercises',
-        'An obligation to buy the shares at expiry',
-        'A right to sell whenever the price suits',
+        '$0 intrinsic and $9 of time value',
+        '$6 intrinsic and $3 of time value',
+        '$9 intrinsic and $0 of time value',
       ],
-      answer: 0,
-      why: 'The premium buys a choice, and the seller is the one who gave that choice up. Because it already owns the shares, its upside is now capped at the strike plus the premium, and the decision to trade belongs to someone else.',
+      answer: 1,
+      why: 'Exercising today would hand you the $6 gap between the $56 share price and the $50 strike, so $6 of the premium is already banked value. The other $3 buys the time still left to run, and it decays to nothing by expiry.',
       traps: {
-        1: 'You picked this if you swap the two sides of a call; the buyer is the one who may buy, so the seller is the one who may have to deliver.',
-        2: 'You picked this if you think collecting a premium buys a right; the money flows to whoever gives up the choice.',
+        0: 'You picked this if you treat the whole premium as time value; this call is already $6 in the money.',
+        2: 'You picked this if you price an option at the exercise gain alone; buyers pay extra for the time remaining.',
       },
-      rule: 'Whoever pays the premium holds the choice; whoever collects it holds the obligation.',
+      rule: 'Intrinsic value is what exercising now would pay you, and everything above it is time value that decays to zero.',
     },
 
     /* ---------------- apply ---------------- */
@@ -164,15 +164,16 @@ export const TEST_5: PracticeTest = {
     {
       shell: 'S10',
       kind: 'num',
-      stem: 'A regional airport reports net income of $60 million and depreciation of $25 million. Receivables rose $15 million and payables rose $10 million. What is cash from operations?',
-      answer: 80,
+      stem: 'A regional airport reports net income of $60 million and depreciation of $25 million. Receivables rose $15 million, spare-parts inventory rose $5 million, and payables rose $10 million. What is cash from operations?',
+      answer: 75,
       unit: '$M',
       format: 'Answer as a number in $M, e.g. 45',
       work: [
         { label: 'Net income', value: '+$60M', running: '$60M' },
         { label: 'Add back depreciation, no money moved', value: '+$25M', running: '$85M' },
         { label: 'Receivables up, billed but not banked', value: '($15M)', running: '$70M' },
-        { label: 'Payables up, incurred but not yet paid', value: '+$10M', running: '$80M' },
+        { label: 'Spare parts up, paid for and still on the shelf', value: '($5M)', running: '$65M' },
+        { label: 'Payables up, incurred but not yet paid', value: '+$10M', running: '$75M' },
       ],
       why: 'Profit is counted when you earn and use things up; cash is counted when the bank moves. Working capital is the timing gap between the two, and it can run either way.',
       rule: 'An asset rising uses up cash; a liability rising leaves cash in the account.',
@@ -180,12 +181,12 @@ export const TEST_5: PracticeTest = {
     {
       shell: 'S11',
       kind: 'num',
-      stem: 'A data centre landlord has a market cap of $700 million, debt of $500 million, and cash of $100 million. EBITDA is $100 million. What EV/EBITDA multiple does it trade at?',
+      stem: 'A data centre landlord has 70 million shares trading at $10, debt of $500 million, and cash of $100 million. EBITDA is $100 million. What EV/EBITDA multiple does it trade at?',
       answer: 11,
       unit: 'x',
       format: 'Answer as a number, e.g. 7',
       work: [
-        { label: 'Market cap, what shareholders own', value: '+$700M', running: '$700M' },
+        { label: 'Equity value: 70M shares at $10', value: '+$700M', running: '$700M' },
         { label: 'Add debt, a claim on the same assets', value: '+$500M', running: '$1,200M' },
         { label: 'Subtract cash you receive on purchase', value: '($100M)', running: 'EV $1,100M' },
         { label: 'Divide by EBITDA', value: '/ $100M', running: '11x' },
@@ -261,19 +262,19 @@ export const TEST_5: PracticeTest = {
     {
       shell: 'S16',
       kind: 'mc',
-      stem: "Long rates rise a point. A data centre landlord's sites open in ten years; a toll road collects its cash today; a water utility pays a steady dividend. Which share price falls hardest?",
+      stem: "Long rates rise a point. You hold a thirty-year bond issued by a water utility, that same utility's shares, and a toll road whose tolls climb with inflation. Which falls hardest?",
       choices: [
-        'The data centre landlord, whose cash arrives latest',
-        "The toll road, which collects cash in today's money",
-        'The water utility, whose dividend now looks less attractive',
+        'The thirty-year bond, whose coupon is fixed for decades',
+        "The utility's shares, since regulated returns cannot be raised",
+        'The toll road, whose tolls climb with inflation each year',
       ],
       answer: 0,
-      why: 'A higher discount rate compounds over every year you wait, so the further out the cash sits, the more of its present value disappears. Cash collected this year is discounted once; cash a decade away is discounted ten times over.',
+      why: 'The coupon is fixed, so the only thing left to adjust to a higher market yield is the price, and thirty years of fixed payments leaves a great deal to adjust. Both equities can at least raise what they charge.',
       traps: {
-        1: 'You picked this if you assume near-term cash flows discount hardest; cash arriving this year is barely discounted at all.',
-        2: 'You picked this if you stop at the bond-proxy story; a yield re-rating hurts, but it hurts less than a decade of extra discounting.',
+        1: 'You picked this if you read a regulated return as frozen; the utility can still grow its earnings, and its shares are not locked to one payment for thirty years.',
+        2: 'You picked this if you missed that inflation-linked tolls are a partial hedge; this road collects more as prices rise, which is the opposite of a fixed coupon.',
       },
-      rule: 'The longer you wait for the cash, the more a rate rise takes off its value today.',
+      rule: 'A fixed coupon cannot move, so when yields rise the price is the only thing left that can.',
     },
 
     /* ---------------- reason ---------------- */

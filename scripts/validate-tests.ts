@@ -249,11 +249,34 @@ for (const shell of SHELLS) {
     if (w[0] === 'the' || w[0] === 'a' || w[0] === 'an') w.shift()
     return w[0] ?? ''
   }
+  // "It creates value" and "It destroys value" differ by one word out of ten, so
+  // word overlap calls them the same proposition. They are opposites. Options
+  // that disagree on polarity are never the same key.
+  const POLARITY: [RegExp, string][] = [
+    [/\b(creates?|rises?|gains?|above|higher|increases?|more)\b/, '+'],
+    [/\b(destroys?|falls?|loses?|below|lower|decreases?|less)\b/, '-'],
+    [/\b(unchanged|flat|neutral|same)\b/, '0'],
+  ]
+  const polarity = (t: string) => {
+    const low = t.toLowerCase()
+    return POLARITY.filter(([re]) => re.test(low))
+      .map(([, sign]) => sign)
+      .join('')
+  }
+  const samePolarity = (a: string, b: string) => {
+    const [pa, pb] = [polarity(a), polarity(b)]
+    return !pa || !pb || pa === pb
+  }
+
   let biggest = 1
   for (let i = 0; i < keys.length; i++) {
-    const byWords = keys.filter((k) => overlap(keys[i], k) >= 0.6).length
+    const byWords = keys.filter(
+      (k, n) => overlap(keys[i], k) >= 0.6 && samePolarity(keyText[i], keyText[n]),
+    ).length
     const head = lead(keyText[i])
-    const byLead = VAGUE.has(head) ? 0 : keyText.filter((t) => lead(t) === head).length
+    const byLead = VAGUE.has(head)
+      ? 0
+      : keyText.filter((t) => lead(t) === head && samePolarity(keyText[i], t)).length
     const n = Math.max(byWords, byLead)
     if (n > biggest) biggest = n
   }
