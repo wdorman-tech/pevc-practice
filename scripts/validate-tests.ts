@@ -212,6 +212,77 @@ for (const s of SHELLS) {
   }
 }
 
+// ---- the key must not be the same proposition on every form ----
+// A learner takes all five. If four forms key to "the balance sheet", the last
+// three are free marks for anyone who remembers Test 1, and the distractors on
+// them stop functioning. Same for an option that is offered five times and is
+// never correct: "never pick that one" becomes a scoring heuristic.
+const bag = (t: string) =>
+  new Set(
+    t
+      .toLowerCase()
+      .replace(/[^a-z/ ]/g, '')
+      .split(/\s+/)
+      .filter((w) => w.length > 2),
+  )
+const overlap = (a: Set<string>, b: Set<string>) => {
+  const shared = [...a].filter((w) => b.has(w)).length
+  return shared / Math.max(1, Math.min(a.size, b.size))
+}
+
+for (const shell of SHELLS) {
+  const mcs = TESTS.map((t) => t.items.find((i) => i.shell === shell.code)).flatMap((i) =>
+    i && i.kind === 'mc' ? [i] : [],
+  )
+  if (mcs.length < 2) continue
+
+  // how many forms key to the same idea as some other form
+  const keyText = mcs.map((m) => m.choices[m.answer])
+  const keys = keyText.map(bag)
+  // Word overlap cannot separate antonyms — "creates value" and "destroys value"
+  // share every other word — so it is backed up by the option's opening noun: the
+  // statement, the multiple, the margin being named. That signal is only usable
+  // when the option actually opens on a name rather than a pronoun.
+  const VAGUE = new Set(['it', 'they', 'value', 'price', 'this', 'that', 'you', 'is', 'are'])
+  const lead = (t: string) => {
+    const w = t.toLowerCase().replace(/[^a-z/ ]/g, '').split(/\s+/).filter(Boolean)
+    if (w[0] === 'the' || w[0] === 'a' || w[0] === 'an') w.shift()
+    return w[0] ?? ''
+  }
+  let biggest = 1
+  for (let i = 0; i < keys.length; i++) {
+    const byWords = keys.filter((k) => overlap(keys[i], k) >= 0.6).length
+    const head = lead(keyText[i])
+    const byLead = VAGUE.has(head) ? 0 : keyText.filter((t) => lead(t) === head).length
+    const n = Math.max(byWords, byLead)
+    if (n > biggest) biggest = n
+  }
+  if (biggest >= 4) {
+    warns.push({
+      test: 'ALL',
+      shell: shell.code,
+      rule: 'key-repeats-across-forms',
+      detail: `${biggest} of ${mcs.length} forms key to the same idea — rotate one onto an untested case`,
+    })
+  }
+
+  // an option offered on every form that is never the key
+  const nonKeys = mcs.map((m) => m.choices.filter((_, n) => n !== m.answer).map(bag))
+  for (const candidate of nonKeys[0]) {
+    const onEveryForm = nonKeys.every((form) => form.some((o) => overlap(candidate, o) >= 0.6))
+    const everKeyed = keys.some((k) => overlap(candidate, k) >= 0.6)
+    if (onEveryForm && !everKeyed && mcs.length === TESTS.length) {
+      warns.push({
+        test: 'ALL',
+        shell: shell.code,
+        rule: 'dead-distractor',
+        detail: `one option appears on all ${mcs.length} forms and is never correct — ruling it out becomes a free heuristic`,
+      })
+      break
+    }
+  }
+}
+
 // ---- key position balance across a form ----
 for (const test of TESTS) {
   const mc = test.items.filter((i): i is Extract<Item, { kind: 'mc' }> => i.kind === 'mc')
